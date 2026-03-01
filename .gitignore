@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Code signing keys
+*.key
+*.crt
+*.pfx
+
+# Archives and backups
+*.7z
+*.backup
+*.bak
+
+# Junk files
+txt.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Claude Code
+.claude/

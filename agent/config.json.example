@@ -1,0 +1,12 @@
+{
+  "port": 3500,
+  "apiKey": "your-api-key-here",
+  "tls": {
+    "enabled": false,
+    "cert": "/path/to/cert.pem",
+    "key": "/path/to/key.pem",
+    "passphrase": ""
+  },
+  "logFormat": "combined",
+  "allowCors": true
+}

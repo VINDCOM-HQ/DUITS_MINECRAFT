@@ -1,0 +1,176 @@
+name: Security Scans
+
+on:
+  push:
+    branches: [develop, main]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 6am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  trivy:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image for scanning
+        run: docker build -t scan-target:latest -f DUITS_MINECRAFT/Dockerfile .
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'scan-target:latest'
+          format: 'json'
+          output: 'trivy-results.json'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Generate summary
+        if: always()
+        run: |
+          cat > README.md <<'HEADER'
+          # Trivy Container Scan Report
+          HEADER
+          echo "" >> README.md
+          echo "**Scan date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> README.md
+          echo "**Commit:** \`${{ github.sha }}\`" >> README.md
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> README.md
+          echo "" >> README.md
+          if [ -f trivy-results.json ]; then
+            CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json 2>/dev/null || echo "0")
+            HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy-results.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' trivy-results.json 2>/dev/null || echo "0")
+            echo "| Severity | Count |" >> README.md
+            echo "|----------|-------|" >> README.md
+            echo "| Critical | $CRITICAL |" >> README.md
+            echo "| High | $HIGH |" >> README.md
+            echo "| Medium | $MEDIUM |" >> README.md
+          else
+            echo "No results file generated." >> README.md
+          fi
+
+      - name: Push report to branch
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git stash --include-untracked || true
+          git checkout --orphan reports/trivy
+          git rm -rf . > /dev/null 2>&1 || true
+          git stash pop || true
+          cp trivy-results.json . 2>/dev/null || true
+          git add README.md trivy-results.json 2>/dev/null || true
+          git commit -m "Trivy scan $(date -u '+%Y-%m-%d %H:%M')" --allow-empty
+          git push --force origin reports/trivy
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: semgrep scan --config auto --json --output semgrep-results.json . || true
+
+      - name: Generate summary
+        if: always()
+        run: |
+          cat > README.md <<'HEADER'
+          # Semgrep SAST Report
+          HEADER
+          echo "" >> README.md
+          echo "**Scan date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> README.md
+          echo "**Commit:** \`${{ github.sha }}\`" >> README.md
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> README.md
+          echo "" >> README.md
+          if [ -f semgrep-results.json ]; then
+            TOTAL=$(jq '.results | length' semgrep-results.json 2>/dev/null || echo "0")
+            ERRORS=$(jq '[.results[] | select(.extra.severity == "ERROR")] | length' semgrep-results.json 2>/dev/null || echo "0")
+            WARNINGS=$(jq '[.results[] | select(.extra.severity == "WARNING")] | length' semgrep-results.json 2>/dev/null || echo "0")
+            echo "| Category | Count |" >> README.md
+            echo "|----------|-------|" >> README.md
+            echo "| Total findings | $TOTAL |" >> README.md
+            echo "| Errors | $ERRORS |" >> README.md
+            echo "| Warnings | $WARNINGS |" >> README.md
+          else
+            echo "No results file generated." >> README.md
+          fi
+
+      - name: Push report to branch
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git stash --include-untracked || true
+          git checkout --orphan reports/semgrep
+          git rm -rf . > /dev/null 2>&1 || true
+          git stash pop || true
+          cp semgrep-results.json . 2>/dev/null || true
+          git add README.md semgrep-results.json 2>/dev/null || true
+          git commit -m "Semgrep scan $(date -u '+%Y-%m-%d %H:%M')" --allow-empty
+          git push --force origin reports/semgrep
+
+  trufflehog:
+    name: TruffleHog Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest \
+            git file:///repo --json > trufflehog-results.json 2>trufflehog-stderr.log || true
+
+      - name: Generate summary
+        if: always()
+        run: |
+          cat > README.md <<'HEADER'
+          # TruffleHog Secret Scan Report
+          HEADER
+          echo "" >> README.md
+          echo "**Scan date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> README.md
+          echo "**Commit:** \`${{ github.sha }}\`" >> README.md
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> README.md
+          echo "" >> README.md
+          if [ -f trufflehog-results.json ] && [ -s trufflehog-results.json ]; then
+            FINDINGS=$(wc -l < trufflehog-results.json)
+            VERIFIED=$(grep -c '"Verified":true' trufflehog-results.json 2>/dev/null || echo "0")
+            echo "| Category | Count |" >> README.md
+            echo "|----------|-------|" >> README.md
+            echo "| Total findings | $FINDINGS |" >> README.md
+            echo "| Verified secrets | $VERIFIED |" >> README.md
+          else
+            echo "No secrets detected." >> README.md
+          fi
+
+      - name: Push report to branch
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git stash --include-untracked || true
+          git checkout --orphan reports/trufflehog
+          git rm -rf . > /dev/null 2>&1 || true
+          git stash pop || true
+          cp trufflehog-results.json . 2>/dev/null || true
+          cp trufflehog-stderr.log . 2>/dev/null || true
+          git add README.md trufflehog-results.json trufflehog-stderr.log 2>/dev/null || true
+          git commit -m "TruffleHog scan $(date -u '+%Y-%m-%d %H:%M')" --allow-empty
+          git push --force origin reports/trufflehog

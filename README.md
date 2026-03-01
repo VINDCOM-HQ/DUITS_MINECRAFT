@@ -1,83 +1,110 @@
-# Minecraft Server Docker Image
+# DUITS Minecraft RMM Tool
 
-A production-ready Docker image for running a Minecraft Paper server with built-in Samba file sharing and MySQL database support.
+A Remote Monitoring and Management tool for Minecraft servers. This electron-based desktop application allows you to:
+
+- Connect to Minecraft servers via RCON protocol
+- Execute commands remotely
+- Query server status
+- Browse server files via SMB
+- Execute MySQL queries
+- Use a secure HTTP/S relay agent for remote access
 
 ## Features
 
-- **Paper Minecraft Server**: Latest Paper 1.21.4 server for optimal performance
-- **Samba File Sharing**: Built-in SMB server for easy world file access
-- **MySQL Database**: Integrated MySQL server for plugins requiring database support
-- **Supervisor Management**: Uses supervisord to manage all services
-- **Log Rotation**: Automatic log rotation to prevent disk space issues
-- **Docker Swarm Ready**: Optimized configuration for both standalone and swarm deployments
+- **Server Management**:
+  - Connect via RCON
+  - Execute commands and view responses
+  - Query server status (basic and full)
+  - View and manage players, bans, and IP bans
 
-## Quick Start
+- **File Operations**:
+  - Connect to server file shares via SMB
+  - Browse, edit, create, and delete files
+  - Upload files
+
+- **Database Management**:
+  - Connect to MySQL databases
+  - Execute SQL queries
+  - View results
+
+- **Relay Agent**:
+  - Connect to servers through a single HTTP/S port
+  - Secure API key authentication
+  - TLS/SSL support
+  - WebSocket support
+  - Multi-platform support (Windows, Linux, macOS)
+  - Docker deployment option
+
+## Desktop Application
+
+The desktop application (Electron) provides a user-friendly interface for all features.
+
+## Docker Container
+
+The `DUITS_MINECRAFT/` directory contains a production-ready Docker image for running a Minecraft Paper server with built-in Samba file sharing, MySQL database support, and an optional agent relay server.
+
+See [DUITS_MINECRAFT/docker-compose.yml](DUITS_MINECRAFT/docker-compose.yml) for deployment.
+
+### Agent Relay in Docker
+
+The agent relay can be bundled into the Minecraft Docker container as an optional Supervisor-managed service:
 
 ```bash
+# Enable in your .env file:
+ENABLE_AGENT=true
+AGENT_PORT=3500
+AGENT_API_KEY=your-secret-key
+```
+
+## Relay Agent
+
+The relay agent allows you to securely expose your Minecraft servers to the internet through a single port.
+
+### Agent Setup
+
+See the [Agent README](agent/README.md) for detailed setup instructions.
+
+Quick start with Docker:
+
+```bash
+cd agent
 docker-compose up -d
 ```
 
-Access your Minecraft server at port 25565 and connect to the Samba share at `\\your-server-ip\minecraft`.
+Quick start as a system service:
 
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| MYSQL_USER | MySQL username | mcuser |
-| MYSQL_PASSWORD | MySQL password | *random if not specified* |
-| MYSQL_DATABASE | MySQL database name | minecraft |
-| SMB_USER | Samba username | mcadmin |
-| SMB_PASSWORD | Samba password | *random if not specified* |
-| TZ | Timezone | UTC |
-
-## Ports
-
-- **25565**: Minecraft server
-- **25565**: UDP QUERY Port (Optional) 
-- **25575**: RCON port (Optional)
-- **3306**: MySQL
-- **445/139**: SMB/CIFS
-- **137/138**: NetBIOS (UDP)
-
-## Volumes
-
-- **/minecraft**: Game server files
-- **/var/lib/mysql**: MySQL database
-- **/var/log/samba**: Samba logs
-- **/var/log/supervisor**: Supervisor logs
-
-## Advanced Configuration
-
-### Custom Server Properties
-
-Mount your `server.properties` file to `/minecraft/server.properties`.
-
-### Custom Samba Config
-
-To customize Samba, modify and mount your own `smb.conf` file.
-
-### Java Memory Settings
-
-Modify the Java memory settings in supervisord.conf to adjust server performance:
-
-```
--Xms6G -Xmx6G
+```bash
+cd agent
+npm install
+npm run service:install
 ```
 
-## Security Notes
+## Configuration
 
-- Always change default passwords in production environments
-- Consider using Docker secrets for credentials in Swarm mode
-- The container runs services as root for simplicity - consider custom security settings for production
+Configuration is encrypted and stored locally using machine-specific or password-based encryption.
 
-## Swarm Deployment
+## Development
 
-A `docker-compose-swarm.yml` file is included for Docker Swarm deployments.
+### Setup
+
+```bash
+git clone <repository-url>
+cd Minecraft_RCON
+npm install
+```
+
+### Run in Development Mode
+
+```bash
+npm run start
+```
+
+### Build
+
+```bash
+npm run build
+```
 
 ## License
 
 See the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
