@@ -70,12 +70,19 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /samba-repair.sh
 COPY --chown=agent:agent agent/ /opt/agent/
 RUN cd /opt/agent && npm ci --omit=dev --omit=optional --ignore-scripts && rm -f .env
 
-# ---------- 6) Healthcheck ----------
+# ---------- 6) Build web portal ----------
+COPY web/ /opt/web-portal/
+RUN cd /opt/web-portal && npm ci && npm run build \
+  && rm -rf node_modules src .svelte-kit static \
+  && cd /opt/web-portal/build && npm ci --omit=dev \
+  && chown -R agent:agent /opt/web-portal
+
+# ---------- 7) Healthcheck ----------
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=120s \
   CMD nc -z localhost 25565 || exit 1
 
-# ---------- 7) Expose ----------
-EXPOSE 25565 25575 445 139 137/udp 138/udp 3500
+# ---------- 8) Expose ----------
+EXPOSE 25565 25575 445 139 137/udp 138/udp 3500 3000
 
 WORKDIR /minecraft
 ENTRYPOINT [ "/usr/local/bin/entrypoint.sh" ]

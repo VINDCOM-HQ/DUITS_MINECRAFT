@@ -21,6 +21,8 @@ services:
       - "138:138/udp"      # NetBIOS datagram
       # Agent relay port - only active when ENABLE_AGENT=true
       - "${AGENT_PORT:-3500}:${AGENT_PORT:-3500}/tcp"
+      # Web portal port - only active when ENABLE_WEB_PORTAL=true
+      - "${WEB_PORTAL_PORT:-3000}:${WEB_PORTAL_PORT:-3000}/tcp"
     volumes:
       - mc_data:/minecraft
       - mysql_data:/var/lib/mysql
@@ -141,6 +143,10 @@ services:
       - ENABLE_AGENT=${ENABLE_AGENT:-false}
       - AGENT_PORT=${AGENT_PORT:-3500}
       - AGENT_API_KEY=${AGENT_API_KEY:-}
+      # Web Portal Configuration
+      - ENABLE_WEB_PORTAL=${ENABLE_WEB_PORTAL:-false}
+      - WEB_PORTAL_PORT=${WEB_PORTAL_PORT:-3000}
+      - WEB_PORTAL_SESSION_SECRET=${WEB_PORTAL_SESSION_SECRET:-}
 
 networks:
   minecraft_network:

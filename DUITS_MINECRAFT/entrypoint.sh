@@ -85,6 +85,45 @@ else
   log "Agent relay disabled (set ENABLE_AGENT=true to enable)"
 fi
 
+# Web portal configuration
+ENABLE_WEB_PORTAL=${ENABLE_WEB_PORTAL:-false}
+WEB_PORTAL_PORT=${WEB_PORTAL_PORT:-3000}
+WEB_PORTAL_SESSION_SECRET=${WEB_PORTAL_SESSION_SECRET:-}
+WEB_PORTAL_AUTOSTART=false
+
+if [ "$ENABLE_WEB_PORTAL" = "true" ]; then
+  WEB_PORTAL_AUTOSTART=true
+
+  # Auto-enable agent if not already enabled (web portal requires it)
+  if [ "$ENABLE_AGENT" != "true" ]; then
+    ENABLE_AGENT=true
+    AGENT_AUTOSTART=true
+    log "Agent auto-enabled for web portal"
+    # Auto-generate API key if not set
+    if [ -z "$AGENT_API_KEY" ]; then
+      AGENT_API_KEY=$(openssl rand -hex 32)
+      log "WARNING: No AGENT_API_KEY set. A random key was generated for this session."
+      log "Set AGENT_API_KEY in your .env to persist a key across restarts."
+      log "Retrieve the current key from /opt/agent/.env if needed."
+    fi
+  fi
+
+  # Auto-generate session secret if not provided
+  if [ -z "$WEB_PORTAL_SESSION_SECRET" ]; then
+    WEB_PORTAL_SESSION_SECRET=$(openssl rand -hex 32)
+  fi
+
+  log "Web portal enabled on port ${WEB_PORTAL_PORT}"
+else
+  log "Web portal disabled (set ENABLE_WEB_PORTAL=true to enable)"
+fi
+
+# Export web portal env vars for supervisor
+export WEB_PORTAL_PORT
+export WEB_PORTAL_SESSION_SECRET
+export AGENT_PORT
+export AGENT_API_KEY
+
 # Escape password for SQL
 MYSQL_PASSWORD_SQL=$(sql_escape "$MYSQL_PASSWORD")
 
@@ -337,6 +376,7 @@ sed -e "s|{{MC_MIN_MEMORY}}|${MC_MIN_MEMORY}|g" \
     -e "s|{{MC_MAX_MEMORY}}|${MC_MAX_MEMORY}|g" \
     -e "s|{{MYSQL_BIND}}|${MYSQL_BIND}|g" \
     -e "s|{{AGENT_AUTOSTART}}|${AGENT_AUTOSTART}|g" \
+    -e "s|{{WEB_PORTAL_AUTOSTART}}|${WEB_PORTAL_AUTOSTART}|g" \
     /etc/supervisor/supervisord.conf.tmpl > /etc/supervisor/supervisord.conf
 
 log "Startup complete, handing off to supervisord"

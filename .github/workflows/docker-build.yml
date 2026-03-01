@@ -6,12 +6,14 @@ on:
     paths:
       - 'DUITS_MINECRAFT/**'
       - 'agent/**'
+      - 'web/**'
       - '.github/workflows/docker-build.yml'
   pull_request:
     branches: [main]
     paths:
       - 'DUITS_MINECRAFT/**'
       - 'agent/**'
+      - 'web/**'
   workflow_dispatch:
 
 env:

@@ -13,3 +13,6 @@ dist/
 DUITS_MINECRAFT/node_modules/
 agent/node_modules/
 agent/.env
+web/node_modules/
+web/.svelte-kit/
+web/build/
