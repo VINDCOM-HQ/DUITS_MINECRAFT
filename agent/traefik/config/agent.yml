@@ -1,0 +1,30 @@
+## Traefik Dynamic Configuration for DUITS Agent
+
+http:
+  routers:
+    mc-agent:
+      rule: "Host(`your-agent-domain.example.com`)"
+      service: "mc-agent-service"
+      entryPoints:
+        - "websecure"
+      tls: {}
+      middlewares:
+        - "secure-headers"
+  
+  services:
+    mc-agent-service:
+      loadBalancer:
+        servers:
+          - url: "http://agent:3500"
+  
+  middlewares:
+    secure-headers:
+      headers:
+        frameDeny: true
+        sslRedirect: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"

@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  agent:
+    build:
+      context: ..
+      dockerfile: agent/Dockerfile
+    image: duits-agent:${VERSION:-latest}
+    container_name: duits-mc-agent
+    restart: unless-stopped
+    ports:
+      - "${AGENT_PORT:-3500}:${AGENT_PORT:-3500}"
+    volumes:
+      - ./config:/usr/src/app/config
+      - ./logs:/usr/src/app/logs
+    environment:
+      - NODE_ENV=production
+      - AGENT_PORT=${AGENT_PORT:-3500}
+      - AGENT_API_KEY=${AGENT_API_KEY}
+      - AGENT_ENABLE_TLS=${AGENT_ENABLE_TLS:-false}
+      - AGENT_TLS_CERT=/usr/src/app/config/cert.pem
+      - AGENT_TLS_KEY=/usr/src/app/config/key.pem
+      - AGENT_ALLOW_CORS=${AGENT_ALLOW_CORS:-true}
+      - AGENT_WEBSOCKETS=${AGENT_WEBSOCKETS:-true}
+    networks:
+      - agent-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional HTTPS reverse proxy using Traefik
+  # Uncomment this section to enable it
+  # traefik:
+  #   image: traefik:v2.9
+  #   container_name: traefik
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+  #     - ./traefik/config:/etc/traefik/config
+  #     - ./traefik/certificates:/etc/traefik/certificates
+  #   networks:
+  #     - agent-network
+  #   labels:
+  #     - "traefik.enable=true"
+
+networks:
+  agent-network:
+    driver: bridge

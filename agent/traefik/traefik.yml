@@ -1,0 +1,40 @@
+## Traefik Static Configuration
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: default
+
+# Enable API and Dashboard
+api:
+  dashboard: true
+  insecure: false
+
+# Configure providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+  file:
+    directory: "/etc/traefik/config"
+    watch: true
+
+# Certificate resolver configuration
+certificatesResolvers:
+  default:
+    # Use Let's Encrypt for automatic SSL certificates
+    # For local certificates, comment out the acme section and use your own certs
+    # mounted under /etc/traefik/certificates
+    acme:
+      email: your-email@example.com
+      storage: /etc/traefik/acme.json
+      tlsChallenge: true

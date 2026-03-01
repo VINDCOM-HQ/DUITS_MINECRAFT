@@ -1,0 +1,15 @@
+# This file must remain at the repository root (build context root).
+# Build context is set to ".." in DUITS_MINECRAFT/docker-compose.yml.
+node_modules/
+.git/
+*.7z
+*.backup
+*.key
+*.crt
+*.pfx
+txt.txt
+dist/
+.env
+DUITS_MINECRAFT/node_modules/
+agent/node_modules/
+agent/.env

@@ -1,0 +1,178 @@
+services:
+  paper-mc:
+    image: downunderit/minecraft:1.24.1
+    networks:
+      - minecraft_network
+    ports:
+      # Minecraft server ports
+      - target: 25565
+        published: 25565
+        protocol: tcp
+        mode: host
+      # Query - SECURITY: Exposes server info to network scanners
+      - target: 25565
+        published: 25565
+        protocol: udp
+        mode: host
+      # RCON - SECURITY: Only expose if needed, ensure strong MC_RCON_PASSWORD
+      - target: 25575
+        published: 25575
+        protocol: tcp
+        mode: host
+      # MySQL - SECURITY: Consider firewall rules to restrict access to trusted IPs only
+      - target: 3306
+        published: 3306
+        protocol: tcp
+        mode: host
+      # Samba ports - SECURITY: Consider firewall rules to restrict access to trusted IPs only
+      - target: 445
+        published: 445
+        protocol: tcp
+        mode: host
+      - target: 139
+        published: 139
+        protocol: tcp
+        mode: host
+      - target: 137
+        published: 137
+        protocol: udp
+        mode: host
+      - target: 138
+        published: 138
+        protocol: udp
+        mode: host
+    volumes:
+      - mc_data:/minecraft
+      - mysql_data:/var/lib/mysql
+      - smb_logs:/var/log/samba
+      - supervisor_logs:/var/log/supervisor
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 10G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "25565"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    environment:
+      # Infrastructure
+      - TZ=${TZ:-UTC}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - SMB_USER=${SMB_USER}
+      - SMB_PASSWORD=${SMB_PASSWORD}
+      - MYSQL_DATABASE=${DATABASE_NAME}
+      - MC_MYSQL_BIND=${MC_MYSQL_BIND:-127.0.0.1}
+      # Java memory (passed to -Xms/-Xmx)
+      - MC_MIN_MEMORY=${MC_MIN_MEMORY:-2G}
+      - MC_MAX_MEMORY=${MC_MAX_MEMORY:-6G}
+      # Minecraft EULA (set to "true" to accept)
+      - MC_EULA=${MC_EULA:-}
+      # Server basics
+      - MC_MOTD=${MC_MOTD:-}
+      - MC_SERVER_PORT=${MC_SERVER_PORT:-}
+      - MC_SERVER_IP=${MC_SERVER_IP:-}
+      - MC_MAX_PLAYERS=${MC_MAX_PLAYERS:-}
+      - MC_LEVEL_NAME=${MC_LEVEL_NAME:-}
+      - MC_LEVEL_SEED=${MC_LEVEL_SEED:-}
+      - MC_LEVEL_TYPE=${MC_LEVEL_TYPE:-}
+      - MC_GENERATOR_SETTINGS=${MC_GENERATOR_SETTINGS:-}
+      # Gameplay settings
+      - MC_GAMEMODE=${MC_GAMEMODE:-}
+      - MC_FORCE_GAMEMODE=${MC_FORCE_GAMEMODE:-}
+      - MC_DIFFICULTY=${MC_DIFFICULTY:-}
+      - MC_HARDCORE=${MC_HARDCORE:-}
+      - MC_PVP=${MC_PVP:-}
+      - MC_ALLOW_FLIGHT=${MC_ALLOW_FLIGHT:-}
+      - MC_ALLOW_NETHER=${MC_ALLOW_NETHER:-}
+      # Spawn settings
+      - MC_SPAWN_PROTECTION=${MC_SPAWN_PROTECTION:-}
+      - MC_SPAWN_NPCS=${MC_SPAWN_NPCS:-}
+      - MC_SPAWN_ANIMALS=${MC_SPAWN_ANIMALS:-}
+      - MC_SPAWN_MONSTERS=${MC_SPAWN_MONSTERS:-}
+      # World settings
+      - MC_VIEW_DISTANCE=${MC_VIEW_DISTANCE:-}
+      - MC_SIMULATION_DISTANCE=${MC_SIMULATION_DISTANCE:-}
+      - MC_MAX_WORLD_SIZE=${MC_MAX_WORLD_SIZE:-}
+      - MC_MAX_BUILD_HEIGHT=${MC_MAX_BUILD_HEIGHT:-}
+      - MC_GENERATE_STRUCTURES=${MC_GENERATE_STRUCTURES:-}
+      # Security and access
+      - MC_ONLINE_MODE=${MC_ONLINE_MODE:-}
+      - MC_WHITE_LIST=${MC_WHITE_LIST:-}
+      - MC_ENFORCE_WHITELIST=${MC_ENFORCE_WHITELIST:-}
+      - MC_ENFORCE_SECURE_PROFILE=${MC_ENFORCE_SECURE_PROFILE:-}
+      - MC_ENABLE_COMMAND_BLOCK=${MC_ENABLE_COMMAND_BLOCK:-}
+      - MC_OP_PERMISSION_LEVEL=${MC_OP_PERMISSION_LEVEL:-}
+      - MC_FUNCTION_PERMISSION_LEVEL=${MC_FUNCTION_PERMISSION_LEVEL:-}
+      # RCON configuration
+      - MC_ENABLE_RCON=${MC_ENABLE_RCON:-}
+      - MC_RCON_PORT=${MC_RCON_PORT:-}
+      - MC_RCON_PASSWORD=${MC_RCON_PASSWORD:-}
+      - MC_BROADCAST_RCON_TO_OPS=${MC_BROADCAST_RCON_TO_OPS:-}
+      # Query configuration
+      - MC_ENABLE_QUERY=${MC_ENABLE_QUERY:-}
+      - MC_QUERY_PORT=${MC_QUERY_PORT:-}
+      # Performance settings
+      - MC_MAX_TICK_TIME=${MC_MAX_TICK_TIME:-}
+      - MC_NETWORK_COMPRESSION_THRESHOLD=${MC_NETWORK_COMPRESSION_THRESHOLD:-}
+      - MC_RATE_LIMIT=${MC_RATE_LIMIT:-}
+      - MC_PLAYER_IDLE_TIMEOUT=${MC_PLAYER_IDLE_TIMEOUT:-}
+      - MC_ENTITY_BROADCAST_RANGE=${MC_ENTITY_BROADCAST_RANGE:-}
+      - MC_MAX_CHAINED_NEIGHBOR_UPDATES=${MC_MAX_CHAINED_NEIGHBOR_UPDATES:-}
+      # Server behavior
+      - MC_PREVENT_PROXY_CONNECTIONS=${MC_PREVENT_PROXY_CONNECTIONS:-}
+      - MC_USE_NATIVE_TRANSPORT=${MC_USE_NATIVE_TRANSPORT:-}
+      - MC_SYNC_CHUNK_WRITES=${MC_SYNC_CHUNK_WRITES:-}
+      - MC_ENABLE_JMX_MONITORING=${MC_ENABLE_JMX_MONITORING:-}
+      - MC_BROADCAST_CONSOLE_TO_OPS=${MC_BROADCAST_CONSOLE_TO_OPS:-}
+      - MC_ENABLE_STATUS=${MC_ENABLE_STATUS:-}
+      - MC_HIDE_ONLINE_PLAYERS=${MC_HIDE_ONLINE_PLAYERS:-}
+      - MC_PAUSE_WHEN_EMPTY_SECONDS=${MC_PAUSE_WHEN_EMPTY_SECONDS:-}
+      # Resource pack
+      - MC_RESOURCE_PACK=${MC_RESOURCE_PACK:-}
+      - MC_RESOURCE_PACK_SHA1=${MC_RESOURCE_PACK_SHA1:-}
+      - MC_RESOURCE_PACK_ID=${MC_RESOURCE_PACK_ID:-}
+      - MC_REQUIRE_RESOURCE_PACK=${MC_REQUIRE_RESOURCE_PACK:-}
+      - MC_RESOURCE_PACK_PROMPT=${MC_RESOURCE_PACK_PROMPT:-}
+      # Data packs
+      - MC_INITIAL_ENABLED_PACKS=${MC_INITIAL_ENABLED_PACKS:-}
+      - MC_INITIAL_DISABLED_PACKS=${MC_INITIAL_DISABLED_PACKS:-}
+      # Advanced settings
+      - MC_ACCEPTS_TRANSFERS=${MC_ACCEPTS_TRANSFERS:-}
+      - MC_LOG_IPS=${MC_LOG_IPS:-}
+      - MC_DEBUG=${MC_DEBUG:-}
+      - MC_BUG_REPORT_LINK=${MC_BUG_REPORT_LINK:-}
+      - MC_REGION_FILE_COMPRESSION=${MC_REGION_FILE_COMPRESSION:-}
+      - MC_TEXT_FILTERING_CONFIG=${MC_TEXT_FILTERING_CONFIG:-}
+      - MC_TEXT_FILTERING_VERSION=${MC_TEXT_FILTERING_VERSION:-}
+
+networks:
+  minecraft_network:
+    driver: overlay
+
+volumes:
+  mc_data:
+    driver: local
+  mysql_data:
+    driver: local
+  smb_logs:
+    driver: local
+  supervisor_logs:
+    driver: local
