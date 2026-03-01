@@ -1,0 +1,88 @@
+version: "3.8"
+
+services:
+  paper-mc:
+    image: downunderit/minecraft:1.24.1
+    networks:
+      - minecraft_network
+    ports:
+      # Minecraft server ports
+      - target: 25565
+        published: 25565
+        protocol: tcp
+        mode: host
+      # ONLY REQUIRED FOR EXTERNAL QUERY ACCESS
+      - target: 25565
+        published: 25565
+        protocol: udp
+        mode: host
+      # ONLY REQUIRED FOR EXTERNAL RCON ACCESS
+      - target: 25575
+        published: 25575
+        protocol: tcp
+        mode: host
+      # MySQL port ONLY EXPOSE IF REQUIRED FOR EXTERNAL ACCESS
+      - target: 3306
+        published: 3306
+        protocol: tcp
+        mode: host
+      # Samba ports ONLY EXPOSE IF REQUIRED FOR EXTERNAL ACCESS
+      - target: 445
+        published: 445
+        protocol: tcp
+        mode: host
+      - target: 139
+        published: 139
+        protocol: tcp
+        mode: host
+      - target: 137
+        published: 137
+        protocol: udp
+        mode: host
+      - target: 138
+        published: 138 
+        protocol: udp
+        mode: host
+    volumes:
+      - mc_data:/minecraft
+      - mysql_data:/var/lib/mysql
+      - smb_logs:/var/log/samba
+      - supervisor_logs:/var/log/supervisor
+    deploy:
+      mode: replicated
+      replicas: 1
+      # placement:
+      #   constraints:
+      #     - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    environment:
+      - TZ=UTC
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - SMB_USER=${SMB_USER}
+      - SMB_PASSWORD=${SMB_PASSWORD}      
+      - MYSQL_DATABASE=${DATABASE_NAME}
+
+networks:
+  minecraft_network:
+    driver: overlay  # Uses overlay network for Swarm
+
+volumes:
+  mc_data:
+    driver: local
+  mysql_data:
+    driver: local
+  smb_logs:
+    driver: local
+  supervisor_logs:
+    driver: local

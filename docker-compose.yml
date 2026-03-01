@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  paper-mc:
+    image: downunderit/minecraft:1.24.1
+    container_name: minecraft-server
+    networks:
+      - minecraft_network
+    ports:
+      # Minecraft server ports
+      - "25565:25565/tcp"  # Game port
+      - "25575:25575/tcp"  # ONLY REQUIRED FOR EXTERNAL RCON ACCESS
+      - "25565:25565/udp"  # ONLY REQUIRED FOR EXTERNAL QUERY ACCESS
+      # MySQL port ONLY EXPOSE IF REQUIRED FOR EXTERNAL ACCESS
+      - "3306:3306/tcp"    # MySQL access
+      # Samba ports ONLY EXPOSE IF REQUIRED FOR EXTERNAL ACCESS
+      - "445:445/tcp"      # SMB over TCP
+      - "139:139/tcp"      # NetBIOS session
+      - "137:137/udp"      # NetBIOS name
+      - "138:138/udp"      # NetBIOS datagram
+    volumes:
+      - mc_data:/minecraft
+      - mysql_data:/var/lib/mysql
+      - smb_logs:/var/log/samba
+      - supervisor_logs:/var/log/supervisor
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - SMB_USER=${SMB_USER}
+      - SMB_PASSWORD=${SMB_PASSWORD}      
+      - MYSQL_DATABASE=${DATABASE_NAME}
+
+networks:
+  minecraft_network:
+    driver: bridge
+
+volumes:
+  mc_data:
+    driver: local
+  mysql_data:
+    driver: local
+  smb_logs:
+    driver: local
+  supervisor_logs:
+    driver: local

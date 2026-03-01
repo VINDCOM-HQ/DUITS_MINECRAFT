@@ -39,9 +39,26 @@ A Remote Monitoring and Management tool for Minecraft servers. This electron-bas
 
 The desktop application (Electron) provides a user-friendly interface for all features.
 
+## Docker Container
+
+The `DUITS_MINECRAFT/` directory contains a production-ready Docker image for running a Minecraft Paper server with built-in Samba file sharing, MySQL database support, and an optional agent relay server.
+
+See [DUITS_MINECRAFT/docker-compose.yml](DUITS_MINECRAFT/docker-compose.yml) for deployment.
+
+### Agent Relay in Docker
+
+The agent relay can be bundled into the Minecraft Docker container as an optional Supervisor-managed service:
+
+```bash
+# Enable in your .env file:
+ENABLE_AGENT=true
+AGENT_PORT=3500
+AGENT_API_KEY=your-secret-key
+```
+
 ## Relay Agent
 
-The relay agent allows you to securely expose your Minecraft servers to the internet through a single port. 
+The relay agent allows you to securely expose your Minecraft servers to the internet through a single port.
 
 ### Agent Setup
 
@@ -87,3 +104,7 @@ npm run start
 ```bash
 npm run build
 ```
+
+## License
+
+See the [LICENSE](LICENSE) file for details.
