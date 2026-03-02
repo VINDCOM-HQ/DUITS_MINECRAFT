@@ -2,45 +2,75 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x.x   | :white_check_mark: |
+| Component | Version | Supported |
+|-----------|---------|-----------|
+| Container (Docker) | 1.x | Yes |
+| Web Portal | 1.x | Yes |
+| Agent Relay | 1.x | Yes |
+| Desktop App | 2.x | Yes |
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within this project, please follow these steps:
+1. **Do not** open a public GitHub issue for security vulnerabilities.
+2. Email the maintainer with a detailed description, reproduction steps, and any proof-of-concept code.
+3. You will receive an acknowledgement within **48 hours**.
+4. A fix or mitigation will be provided within **14 days** for critical issues, **30 days** for others.
+5. We follow coordinated disclosure — please allow time for a patch before any public announcement.
 
-1. **Do not disclose the vulnerability publicly** or create a public GitHub issue
-2. Email the maintainer directly with details of the vulnerability
-3. Include steps to reproduce the issue and any proof-of-concept code if possible
-4. Allow time for the vulnerability to be addressed before any public disclosure
+## Security Architecture
 
-## Security Features
+### Agent Relay
 
-This Docker image includes several security measures:
+- All API endpoints require an API key via `X-API-Key` header, query parameter, or request body.
+- API keys are compared using `crypto.timingSafeEqual` to prevent timing attacks.
+- Socket.IO connections are authenticated via the same API key mechanism (query, auth object, or header).
+- TLS is supported natively — set `AGENT_ENABLE_TLS=true` with certificate and key paths.
+- Each client connection receives a UUID; connection state is isolated per client.
 
-- Regular updates to security-critical Python packages:
-  - cryptography (version 43.0.1+)
-  - idna (version 3.7+)
-  - protobuf (version 6.30.2+)
+### Web Portal
 
-- Containerized services to isolate the Minecraft server from the host system
+- **Sessions**: HMAC-SHA256 signed cookies with a 24-hour TTL. Session IDs are `crypto.randomUUID()`, signed with a secret (`WEB_PORTAL_SESSION_SECRET`). Signature verification uses `crypto.timingSafeEqual`.
+- **Password storage**: bcrypt with cost factor 12.
+- **Database queries**: All SQL uses parameterized queries via `mysql2` — no string interpolation.
+- **Auth flow**: `hooks.server.js` intercepts every request, verifies the session cookie, and redirects unauthenticated users to `/login`. API routes return `401`.
+- **OAuth/OIDC**: Standard authorization code flow with CSRF state parameter (`crypto.randomBytes(32)`). Discovery document is fetched from the issuer and cached for 1 hour.
+- **SAML 2.0**: Assertions are validated with `wantAssertionsSigned: true` and `wantAuthnResponseSigned: true` via `@node-saml/node-saml`.
+- **External users**: OAuth/SAML users are provisioned as `role: 'user'` — only the break-glass admin has `role: 'admin'` by default.
 
-## Security Best Practices
+### Container
 
-When using this Docker image:
+- The Minecraft server runs as a dedicated `minecraft` user, not root.
+- The agent relay runs as a dedicated `agent` user with its `.env` file set to `chmod 600`.
+- MySQL credentials and portal DB passwords are auto-generated with `openssl rand` if not provided.
+- Input validation in `entrypoint.sh`: identifiers are alphanumeric-only, memory values are validated, IP addresses are validated, SQL values are escaped.
+- MySQL binds to `127.0.0.1` by default — external access must be explicitly enabled.
 
-1. **Change default passwords**: Always modify the default MySQL and Samba passwords
-2. **Use a firewall**: Limit access to only the required ports
-3. **Regular updates**: Keep the image updated to receive security patches
-4. **Backups**: Implement regular backups of your Minecraft world and database
-5. **Access control**: Restrict access to the Samba share to trusted users only
+### Desktop App
 
-## Known Issues
+- Configuration is encrypted and stored locally using machine-specific or password-based encryption.
+- The agent API key is stored in the encrypted config and transmitted over TLS when configured.
 
-- The container runs services as root for simplicity. For production environments with specific security requirements, consider adjusting the service user settings.
-- The Samba share permissions are set to 777 (full permissions). Consider customizing permissions for your specific security needs.
+## CI Security Scans
 
-## Security Updates
+Three automated scans run on every push to `develop`/`main` and on a weekly schedule:
 
-Security updates will be released as new versions of the Docker image. Check the GitHub repository regularly for updates.
+| Tool | Purpose | Report Branch |
+|------|---------|---------------|
+| **Trivy** | Container vulnerability scanning (CRITICAL, HIGH, MEDIUM) | `reports/trivy` |
+| **Semgrep** | Static analysis / SAST for code vulnerabilities | `reports/semgrep` |
+| **TruffleHog** | Secret detection across git history | `reports/trufflehog` |
+
+Reports are pushed to orphan branches and can be viewed in the GitHub repository.
+
+## Hardening Checklist
+
+- [ ] Change all default passwords (`MYSQL_PASSWORD`, `SMB_PASSWORD`, `MC_RCON_PASSWORD`, `WEB_PORTAL_ADMIN_PASSWORD`)
+- [ ] Set a persistent `AGENT_API_KEY` (auto-generated keys change on restart)
+- [ ] Set a persistent `WEB_PORTAL_SESSION_SECRET` (auto-generated secrets invalidate sessions on restart)
+- [ ] Enable TLS on the agent relay (`AGENT_ENABLE_TLS=true`) or place it behind a reverse proxy
+- [ ] Restrict MySQL to localhost (`MC_MYSQL_BIND=127.0.0.1` — the default)
+- [ ] Use firewall rules to limit access to ports 25575 (RCON), 3306 (MySQL), 445 (SMB)
+- [ ] Set `MC_ONLINE_MODE=true` to enforce Mojang authentication
+- [ ] Enable whitelist (`MC_WHITE_LIST=true`, `MC_ENFORCE_WHITELIST=true`)
+- [ ] Review Trivy, Semgrep, and TruffleHog reports regularly
+- [ ] Keep the Docker image and all dependencies up to date
