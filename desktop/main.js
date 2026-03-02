@@ -47,7 +47,11 @@ async function startEmbeddedAgentServer() {
     }
 
     // Load the agent server module
-    const agentPath = path.join(__dirname, 'agent', 'src', 'server.js');
+    // In dev, agent/ is at the repo root (sibling of desktop/).
+    // When packaged, electron-builder copies it into the asar at agent/.
+    const agentPath = app.isPackaged
+      ? path.join(__dirname, 'agent', 'src', 'server.js')
+      : path.join(__dirname, '..', 'agent', 'src', 'server.js');
 
     if (!fs.existsSync(agentPath)) {
       console.error('[EMBEDDED-AGENT] Agent server not found at:', agentPath);
@@ -128,7 +132,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // Ensure correct app model for Win taskbar icon
-app.setAppUserModelId('com.duits.mcrcon');
+app.setAppUserModelId('com.vindcom.netherdeck');
 
 // Shared mutable state — accessed by IPC modules via getState()
 let mainWindow;

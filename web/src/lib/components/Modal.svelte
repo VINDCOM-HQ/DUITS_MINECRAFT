@@ -17,15 +17,15 @@
 {#if open}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="fixed inset-0 bg-black/60 z-40 flex items-center justify-center p-4"
+		class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 flex items-center justify-center p-4"
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
 	>
-		<div class="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-auto">
-			<div class="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-				<h3 class="text-lg font-semibold text-gray-100">{title}</h3>
+		<div class="bg-obsidian-800 border border-obsidian-500 rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-auto">
+			<div class="flex items-center justify-between px-5 py-4 border-b border-obsidian-600">
+				<h3 class="text-lg font-semibold text-obsidian-100">{title}</h3>
 				<button
-					class="text-gray-400 hover:text-gray-200 text-xl leading-none"
+					class="text-obsidian-200 hover:text-purple-400 text-xl leading-none transition-colors"
 					onclick={onclose}
 				>
 					&times;

@@ -1,1 +1,23 @@
 @import "tailwindcss";
+
+@theme {
+	/* Crying Obsidian palette */
+	--color-obsidian-950: #0a0014;
+	--color-obsidian-900: #130826;
+	--color-obsidian-800: #1a1030;
+	--color-obsidian-700: #221540;
+	--color-obsidian-600: #2d1d50;
+	--color-obsidian-500: #3d2a66;
+	--color-obsidian-400: #5b3d8a;
+	--color-obsidian-300: #7c5aad;
+	--color-obsidian-200: #a89bc8;
+	--color-obsidian-100: #ede9f6;
+
+	/* Status colors */
+	--color-emerald-500: #10b981;
+	--color-emerald-600: #059669;
+	--color-rose-500: #f43f5e;
+	--color-rose-600: #e11d48;
+	--color-amber-500: #f59e0b;
+	--color-amber-600: #d97706;
+}

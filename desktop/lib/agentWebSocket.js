@@ -1,5 +1,5 @@
 /**
- * Socket.IO client for the Minecraft RCON agent
+ * Socket.IO client for the NetherDeck agent
  * Provides a persistent connection to the agent server
  */
 // ALWAYS use direct require for maximum reliability

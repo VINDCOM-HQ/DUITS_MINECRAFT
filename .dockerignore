@@ -1,18 +1,45 @@
-# This file must remain at the repository root (build context root).
-# Build context is set to ".." in DUITS_MINECRAFT/docker-compose.yml.
-node_modules/
-.git/
-*.7z
-*.backup
-*.key
-*.crt
-*.pfx
-txt.txt
-dist/
-.env
-DUITS_MINECRAFT/node_modules/
-agent/node_modules/
+# Git
+.git
+.gitignore
+
+# Node dependencies (re-installed during build)
+node_modules
+**/node_modules
+
+# Web build artefacts (rebuilt during image build)
+web/.svelte-kit
+web/build
+
+# Gradle caches and intermediate build outputs — keep only the final jars
+NetherDeck Server/.gradle
+NetherDeck Server/build/classes
+NetherDeck Server/build/generated
+NetherDeck Server/build/reports
+NetherDeck Server/build/resources
+NetherDeck Server/build/tmp
+NetherDeck Server/**/build/classes
+NetherDeck Server/**/build/generated
+NetherDeck Server/**/build/reports
+NetherDeck Server/**/build/resources
+NetherDeck Server/**/build/tmp
+NetherDeck Server/**/build/libs
+# Re-include the root libs (the final collected jars)
+!NetherDeck Server/build/libs
+
+# Desktop app (Electron — not part of the container)
+desktop
+
+# Logs
+logs
+
+# Dev secrets
 agent/.env
-web/node_modules/
-web/.svelte-kit/
-web/build/
+web/.env
+
+# IDE / OS
+.vscode
+.claude
+*.pfx
+*.crt
+*.key
+code_sign.*

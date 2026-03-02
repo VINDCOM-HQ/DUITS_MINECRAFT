@@ -1,17 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { sendRequest } from '$lib/server/agent.js';
+import { connect, getConnectionInfo } from '$lib/server/services/minecraft.js';
 
 /** @type {import('./$types').RequestHandler} */
-export async function POST({ request }) {
+export async function POST() {
 	try {
-		const { host, port, password } = await request.json();
+		await connect();
+		const info = getConnectionInfo();
 
-		if (!host || !port || !password) {
-			return json({ success: false, error: 'Host, port, and password are required' }, { status: 400 });
-		}
-
-		const result = await sendRequest('connect', 'rcon', { host, port: Number(port), password });
-		return json(result);
+		return json({ success: true, ...info });
 	} catch (err) {
 		return json({ success: false, error: err.message }, { status: 500 });
 	}

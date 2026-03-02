@@ -1,53 +1,70 @@
-import crypto from 'node:crypto';
+import { runMigrations } from '$lib/server/migrate.js';
+import { verifySession } from '$lib/server/auth.js';
+import { connect as rconConnect, isConnected as isRconConnected } from '$lib/server/services/minecraft.js';
 
-const SESSION_SECRET = process.env.WEB_PORTAL_SESSION_SECRET || crypto.randomBytes(32).toString('hex');
-const sessions = new Map();
+let initialized = false;
+let initFailed = false;
+let initRetryAfter = 0;
 
-function signToken(sessionId) {
-	const hmac = crypto.createHmac('sha256', SESSION_SECRET);
-	hmac.update(sessionId);
-	return `${sessionId}.${hmac.digest('hex')}`;
-}
+const INIT_RETRY_INTERVAL_MS = 10_000;
 
-function verifyToken(token) {
-	if (!token || !token.includes('.')) return null;
-	const [sessionId, sig] = token.split('.');
-	const hmac = crypto.createHmac('sha256', SESSION_SECRET);
-	hmac.update(sessionId);
-	const expected = hmac.digest('hex');
-
-	if (!crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'))) {
-		return null;
+async function ensureInitialized() {
+	if (initialized) {
+		return true;
 	}
 
-	return sessions.has(sessionId) ? sessionId : null;
-}
+	if (initFailed && Date.now() < initRetryAfter) {
+		return false;
+	}
 
-export function createSession() {
-	const sessionId = crypto.randomUUID();
-	sessions.set(sessionId, { created: Date.now() });
-	return signToken(sessionId);
-}
+	try {
+		await runMigrations();
+		initialized = true;
+		initFailed = false;
 
-export function destroySession(token) {
-	if (!token) return;
-	const sessionId = verifyToken(token);
-	if (sessionId) {
-		sessions.delete(sessionId);
+		// Auto-connect RCON in background (non-blocking).
+		// MC server may not be running yet — RCON will auto-reconnect on first command.
+		if (!isRconConnected()) {
+			rconConnect().catch(() => {});
+		}
+
+		return true;
+	} catch (err) {
+		console.error('[hooks] Database initialization failed:', err.message);
+		initFailed = true;
+		initRetryAfter = Date.now() + INIT_RETRY_INTERVAL_MS;
+		return false;
 	}
 }
 
 /** @type {import('@sveltejs/kit').Handle} */
 export async function handle({ event, resolve }) {
-	const token = event.cookies.get('session');
-	const sessionId = token ? verifyToken(token) : null;
+	const ready = await ensureInitialized();
 
-	event.locals.authenticated = !!sessionId;
+	if (!ready) {
+		const isApiRoute = event.url.pathname.startsWith('/api/');
+		if (isApiRoute) {
+			return new Response(
+				JSON.stringify({ error: 'Service unavailable — database not ready' }),
+				{ status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '10' } }
+			);
+		}
+		return new Response('Service unavailable — database not ready. Retry shortly.', {
+			status: 503,
+			headers: { 'Content-Type': 'text/plain', 'Retry-After': '10' }
+		});
+	}
+
+	const token = event.cookies.get('session');
+	const user = token ? await verifySession(token) : null;
+
+	event.locals.user = user;
 
 	const isLoginRoute = event.url.pathname === '/login';
+	const isAuthRoute = event.url.pathname.startsWith('/auth/');
 	const isApiRoute = event.url.pathname.startsWith('/api/');
 
-	if (!event.locals.authenticated && !isLoginRoute) {
+	if (!user && !isLoginRoute && !isAuthRoute) {
 		if (isApiRoute) {
 			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
 				status: 401,
@@ -60,7 +77,7 @@ export async function handle({ event, resolve }) {
 		});
 	}
 
-	if (event.locals.authenticated && isLoginRoute) {
+	if (user && isLoginRoute) {
 		return new Response(null, {
 			status: 302,
 			headers: { Location: '/' }

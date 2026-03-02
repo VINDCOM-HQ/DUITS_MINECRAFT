@@ -1,17 +1,18 @@
 import { json } from '@sveltejs/kit';
-import { sendRequest } from '$lib/server/agent.js';
+import { command } from '$lib/server/services/minecraft.js';
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request }) {
 	try {
-		const { clientId, command } = await request.json();
+		const body = await request.json();
+		const cmd = body.command;
 
-		if (!clientId || !command) {
-			return json({ success: false, error: 'clientId and command are required' }, { status: 400 });
+		if (!cmd || typeof cmd !== 'string') {
+			return json({ success: false, error: 'command is required' }, { status: 400 });
 		}
 
-		const result = await sendRequest('command', 'rcon', { clientId, command });
-		return json(result);
+		const response = await command(cmd);
+		return json({ success: true, response });
 	} catch (err) {
 		return json({ success: false, error: err.message }, { status: 500 });
 	}

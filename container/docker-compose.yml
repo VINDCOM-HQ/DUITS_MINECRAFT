@@ -2,8 +2,8 @@ services:
   paper-mc:
     build:
       context: ..
-      dockerfile: DUITS_MINECRAFT/Dockerfile
-    image: downunderit/minecraft:1.24.1
+      dockerfile: container/Dockerfile
+    image: vindcom/netherdeck:1.24.1
     container_name: minecraft-server
     networks:
       - minecraft_network
@@ -147,6 +147,37 @@ services:
       - ENABLE_WEB_PORTAL=${ENABLE_WEB_PORTAL:-false}
       - WEB_PORTAL_PORT=${WEB_PORTAL_PORT:-3000}
       - WEB_PORTAL_SESSION_SECRET=${WEB_PORTAL_SESSION_SECRET:-}
+      # Portal Database (defaults to built-in MySQL)
+      - WEB_PORTAL_DB_HOST=${WEB_PORTAL_DB_HOST:-localhost}
+      - WEB_PORTAL_DB_PORT=${WEB_PORTAL_DB_PORT:-3306}
+      - WEB_PORTAL_DB_USER=${WEB_PORTAL_DB_USER:-netherdeck}
+      - WEB_PORTAL_DB_PASSWORD=${WEB_PORTAL_DB_PASSWORD:-}
+      - WEB_PORTAL_DB_NAME=${WEB_PORTAL_DB_NAME:-netherdeck}
+      # Portal Admin (break-glass credentials)
+      - WEB_PORTAL_ADMIN_USER=${WEB_PORTAL_ADMIN_USER:-admin}
+      - WEB_PORTAL_ADMIN_PASSWORD=${WEB_PORTAL_ADMIN_PASSWORD:-}
+      # Portal RCON (direct connection)
+      - WEB_PORTAL_RCON_HOST=${WEB_PORTAL_RCON_HOST:-localhost}
+      - WEB_PORTAL_RCON_PORT=${WEB_PORTAL_RCON_PORT:-25575}
+      - WEB_PORTAL_RCON_PASSWORD=${WEB_PORTAL_RCON_PASSWORD:-}
+      # Game Database Name (same MySQL instance, different database)
+      - WEB_PORTAL_GAME_DB_NAME=${WEB_PORTAL_GAME_DB_NAME:-}
+      # Portal Minecraft Files
+      - WEB_PORTAL_MC_DIR=${WEB_PORTAL_MC_DIR:-/minecraft}
+      # Portal Query Port (defaults to game port for query protocol)
+      - WEB_PORTAL_QUERY_PORT=${WEB_PORTAL_QUERY_PORT:-25565}
+      # OAuth / OIDC (optional)
+      - WEB_PORTAL_OAUTH_ENABLED=${WEB_PORTAL_OAUTH_ENABLED:-false}
+      - WEB_PORTAL_OAUTH_ISSUER_URL=${WEB_PORTAL_OAUTH_ISSUER_URL:-}
+      - WEB_PORTAL_OAUTH_CLIENT_ID=${WEB_PORTAL_OAUTH_CLIENT_ID:-}
+      - WEB_PORTAL_OAUTH_CLIENT_SECRET=${WEB_PORTAL_OAUTH_CLIENT_SECRET:-}
+      - WEB_PORTAL_OAUTH_SCOPES=${WEB_PORTAL_OAUTH_SCOPES:-openid profile email}
+      - WEB_PORTAL_OAUTH_CALLBACK_URL=${WEB_PORTAL_OAUTH_CALLBACK_URL:-}
+      # SAML 2.0 (optional)
+      - WEB_PORTAL_SAML_ENABLED=${WEB_PORTAL_SAML_ENABLED:-false}
+      - WEB_PORTAL_SAML_IDP_METADATA_URL=${WEB_PORTAL_SAML_IDP_METADATA_URL:-}
+      - WEB_PORTAL_SAML_ENTITY_ID=${WEB_PORTAL_SAML_ENTITY_ID:-}
+      - WEB_PORTAL_SAML_CALLBACK_URL=${WEB_PORTAL_SAML_CALLBACK_URL:-}
 
 networks:
   minecraft_network:

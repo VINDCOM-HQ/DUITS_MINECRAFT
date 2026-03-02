@@ -91,26 +91,43 @@ WEB_PORTAL_PORT=${WEB_PORTAL_PORT:-3000}
 WEB_PORTAL_SESSION_SECRET=${WEB_PORTAL_SESSION_SECRET:-}
 WEB_PORTAL_AUTOSTART=false
 
+# Portal database config (defaults to built-in MySQL)
+WEB_PORTAL_DB_HOST=${WEB_PORTAL_DB_HOST:-localhost}
+WEB_PORTAL_DB_PORT=${WEB_PORTAL_DB_PORT:-3306}
+WEB_PORTAL_DB_USER=${WEB_PORTAL_DB_USER:-netherdeck}
+WEB_PORTAL_DB_PASSWORD=${WEB_PORTAL_DB_PASSWORD:-}
+WEB_PORTAL_DB_NAME=${WEB_PORTAL_DB_NAME:-netherdeck}
+
+# Break-glass admin credentials
+WEB_PORTAL_ADMIN_USER=${WEB_PORTAL_ADMIN_USER:-admin}
+WEB_PORTAL_ADMIN_PASSWORD=${WEB_PORTAL_ADMIN_PASSWORD:-}
+
+# Direct RCON connection from portal
+WEB_PORTAL_RCON_HOST=${WEB_PORTAL_RCON_HOST:-localhost}
+WEB_PORTAL_RCON_PORT=${WEB_PORTAL_RCON_PORT:-25575}
+WEB_PORTAL_RCON_PASSWORD=${WEB_PORTAL_RCON_PASSWORD:-${MC_RCON_PASSWORD:-}}
+
+# Game database name (same MySQL instance, different database)
+WEB_PORTAL_GAME_DB_NAME=${WEB_PORTAL_GAME_DB_NAME:-${MYSQL_DATABASE}}
+
+# Minecraft files directory
+WEB_PORTAL_MC_DIR=${WEB_PORTAL_MC_DIR:-/minecraft}
+
 if [ "$ENABLE_WEB_PORTAL" = "true" ]; then
   WEB_PORTAL_AUTOSTART=true
-
-  # Auto-enable agent if not already enabled (web portal requires it)
-  if [ "$ENABLE_AGENT" != "true" ]; then
-    ENABLE_AGENT=true
-    AGENT_AUTOSTART=true
-    log "Agent auto-enabled for web portal"
-    # Auto-generate API key if not set
-    if [ -z "$AGENT_API_KEY" ]; then
-      AGENT_API_KEY=$(openssl rand -hex 32)
-      log "WARNING: No AGENT_API_KEY set. A random key was generated for this session."
-      log "Set AGENT_API_KEY in your .env to persist a key across restarts."
-      log "Retrieve the current key from /opt/agent/.env if needed."
-    fi
-  fi
 
   # Auto-generate session secret if not provided
   if [ -z "$WEB_PORTAL_SESSION_SECRET" ]; then
     WEB_PORTAL_SESSION_SECRET=$(openssl rand -hex 32)
+  fi
+
+  # Auto-generate portal DB password if not provided
+  if [ -z "$WEB_PORTAL_DB_PASSWORD" ]; then
+    WEB_PORTAL_DB_PASSWORD=$(openssl rand -base64 24)
+  fi
+
+  if [ -z "$WEB_PORTAL_ADMIN_PASSWORD" ]; then
+    log "WARNING: WEB_PORTAL_ADMIN_PASSWORD not set. Set it in .env to create a break-glass admin."
   fi
 
   log "Web portal enabled on port ${WEB_PORTAL_PORT}"
@@ -118,11 +135,18 @@ else
   log "Web portal disabled (set ENABLE_WEB_PORTAL=true to enable)"
 fi
 
-# Export web portal env vars for supervisor
-export WEB_PORTAL_PORT
-export WEB_PORTAL_SESSION_SECRET
-export AGENT_PORT
-export AGENT_API_KEY
+# Query port for web portal (defaults to game port)
+WEB_PORTAL_QUERY_PORT=${WEB_PORTAL_QUERY_PORT:-${MC_QUERY_PORT:-25565}}
+
+# Export all env vars for supervisor
+export AGENT_PORT AGENT_API_KEY
+export WEB_PORTAL_PORT WEB_PORTAL_SESSION_SECRET
+export WEB_PORTAL_DB_HOST WEB_PORTAL_DB_PORT WEB_PORTAL_DB_USER
+export WEB_PORTAL_DB_PASSWORD WEB_PORTAL_DB_NAME
+export WEB_PORTAL_ADMIN_USER WEB_PORTAL_ADMIN_PASSWORD
+export WEB_PORTAL_RCON_HOST WEB_PORTAL_RCON_PORT WEB_PORTAL_RCON_PASSWORD
+export WEB_PORTAL_GAME_DB_NAME
+export WEB_PORTAL_MC_DIR WEB_PORTAL_QUERY_PORT
 
 # Escape password for SQL
 MYSQL_PASSWORD_SQL=$(sql_escape "$MYSQL_PASSWORD")
@@ -168,6 +192,20 @@ if [ ! -d /var/lib/mysql/mysql ]; then
     FLUSH PRIVILEGES;
 EOSQL
 
+  # Create portal database if web portal is enabled and using built-in MySQL
+  if [ "$ENABLE_WEB_PORTAL" = "true" ] && [ "$WEB_PORTAL_DB_HOST" = "localhost" ]; then
+    WEB_PORTAL_DB_PASSWORD_SQL=$(sql_escape "$WEB_PORTAL_DB_PASSWORD")
+    log "Creating portal database '${WEB_PORTAL_DB_NAME}'..."
+    mysql -u root <<-EOSQL
+      CREATE DATABASE IF NOT EXISTS \`${WEB_PORTAL_DB_NAME}\`;
+      CREATE USER IF NOT EXISTS '${WEB_PORTAL_DB_USER}'@'localhost' IDENTIFIED BY '${WEB_PORTAL_DB_PASSWORD_SQL}';
+      GRANT CREATE ON *.* TO '${WEB_PORTAL_DB_USER}'@'localhost';
+      GRANT ALL PRIVILEGES ON \`${WEB_PORTAL_DB_NAME}\`.* TO '${WEB_PORTAL_DB_USER}'@'localhost';
+      GRANT SELECT ON \`${WEB_PORTAL_GAME_DB_NAME}\`.* TO '${WEB_PORTAL_DB_USER}'@'localhost';
+      FLUSH PRIVILEGES;
+EOSQL
+  fi
+
   # Shutdown MySQL and wait for clean exit
   log "Shutting down temporary MySQL server..."
   mysqladmin -u root shutdown
@@ -206,6 +244,21 @@ else
     GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
     FLUSH PRIVILEGES;
 EOSQL
+
+  # Create/update portal database if web portal is enabled and using built-in MySQL
+  if [ "$ENABLE_WEB_PORTAL" = "true" ] && [ "$WEB_PORTAL_DB_HOST" = "localhost" ]; then
+    WEB_PORTAL_DB_PASSWORD_SQL=$(sql_escape "$WEB_PORTAL_DB_PASSWORD")
+    log "Creating/updating portal database '${WEB_PORTAL_DB_NAME}'..."
+    mysql -u root <<-EOSQL
+      CREATE DATABASE IF NOT EXISTS \`${WEB_PORTAL_DB_NAME}\`;
+      CREATE USER IF NOT EXISTS '${WEB_PORTAL_DB_USER}'@'localhost' IDENTIFIED BY '${WEB_PORTAL_DB_PASSWORD_SQL}';
+      ALTER USER '${WEB_PORTAL_DB_USER}'@'localhost' IDENTIFIED BY '${WEB_PORTAL_DB_PASSWORD_SQL}';
+      GRANT CREATE ON *.* TO '${WEB_PORTAL_DB_USER}'@'localhost';
+      GRANT ALL PRIVILEGES ON \`${WEB_PORTAL_DB_NAME}\`.* TO '${WEB_PORTAL_DB_USER}'@'localhost';
+      GRANT SELECT ON \`${WEB_PORTAL_GAME_DB_NAME}\`.* TO '${WEB_PORTAL_DB_USER}'@'localhost';
+      FLUSH PRIVILEGES;
+EOSQL
+  fi
 
   # Shutdown MySQL and wait for clean exit
   log "Shutting down temporary MySQL server..."
@@ -324,9 +377,17 @@ SERVER_PROPERTIES="/minecraft/server.properties"
 [ -n "${MC_TEXT_FILTERING_VERSION:-}" ] && set_property "text-filtering-version" "$MC_TEXT_FILTERING_VERSION"
 
 # Accept EULA automatically if env var is set
+PAPER_AUTOSTART=true
 if [ "${MC_EULA:-}" = "true" ] || [ "${EULA:-}" = "true" ]; then
   echo "eula=true" > /minecraft/eula.txt
   log "EULA accepted via environment variable"
+elif [ -f /minecraft/eula.txt ] && grep -qi "eula=true" /minecraft/eula.txt; then
+  log "EULA already accepted in eula.txt"
+else
+  log "WARNING: Minecraft EULA not accepted. Paper server will NOT start."
+  log "Set MC_EULA=true in your .env file or docker-compose environment to accept."
+  log "Other services (MySQL, Samba, Web Portal) will still start normally."
+  PAPER_AUTOSTART=false
 fi
 
 # Set proper ownership for server files
@@ -375,6 +436,7 @@ log "MySQL bind address: ${MYSQL_BIND}"
 sed -e "s|{{MC_MIN_MEMORY}}|${MC_MIN_MEMORY}|g" \
     -e "s|{{MC_MAX_MEMORY}}|${MC_MAX_MEMORY}|g" \
     -e "s|{{MYSQL_BIND}}|${MYSQL_BIND}|g" \
+    -e "s|{{PAPER_AUTOSTART}}|${PAPER_AUTOSTART}|g" \
     -e "s|{{AGENT_AUTOSTART}}|${AGENT_AUTOSTART}|g" \
     -e "s|{{WEB_PORTAL_AUTOSTART}}|${WEB_PORTAL_AUTOSTART}|g" \
     /etc/supervisor/supervisord.conf.tmpl > /etc/supervisor/supervisord.conf

@@ -14,16 +14,16 @@
 	const gameModes = ['survival', 'creative', 'adventure', 'spectator'];
 	const modeColors = {
 		survival: 'bg-emerald-600 hover:bg-emerald-500',
-		creative: 'bg-indigo-600 hover:bg-indigo-500',
+		creative: 'bg-purple-600 hover:bg-purple-500',
 		adventure: 'bg-amber-600 hover:bg-amber-500',
-		spectator: 'bg-slate-600 hover:bg-slate-500'
+		spectator: 'bg-obsidian-600 hover:bg-obsidian-500'
 	};
 
 	async function fetchPlayers() {
-		if (!getRcon().clientId) return;
+		if (!getRcon().connected) return;
 		loading = true;
 		try {
-			const result = await rconCommand(getRcon().clientId, 'list');
+			const result = await rconCommand('list');
 			const response = result.response || '';
 			const match = response.match(/There are (\d+) of a max of \d+ players online:(.*)/);
 			if (match) {
@@ -49,7 +49,7 @@
 
 	async function runCommand(cmd) {
 		try {
-			await rconCommand(getRcon().clientId, cmd);
+			await rconCommand(cmd);
 			toastSuccess(`Executed: ${cmd}`);
 			setTimeout(fetchPlayers, 1000);
 		} catch (err) {
@@ -82,10 +82,10 @@
 	}
 </script>
 
-<div class="max-w-4xl">
+<div class="w-full">
 	<div class="flex items-center justify-between mb-6">
-		<h1 class="text-2xl font-bold text-gray-100">Player Management</h1>
-		<span class="text-sm text-gray-400">
+		<h1 class="text-2xl font-bold text-obsidian-100">Player Management</h1>
+		<span class="text-sm text-obsidian-200">
 			{players.length} player{players.length !== 1 ? 's' : ''} online
 		</span>
 	</div>
@@ -96,28 +96,28 @@
 			<a href="/console" class="underline hover:text-amber-200">Go to Console</a>
 		</div>
 	{:else}
-		<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
+		<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5 mb-4">
 			<div class="flex items-center justify-between mb-4">
-				<h2 class="text-sm font-medium text-gray-400">Online Players</h2>
+				<h2 class="text-sm font-medium text-obsidian-200">Online Players</h2>
 				<button
 					onclick={fetchPlayers}
 					disabled={loading}
-					class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+					class="text-xs text-purple-400 hover:text-purple-300 transition-colors"
 				>
 					{loading ? 'Refreshing...' : 'Refresh'}
 				</button>
 			</div>
 
 			{#if players.length === 0}
-				<p class="text-gray-500 text-sm italic">No players online</p>
+				<p class="text-obsidian-300 text-sm italic">No players online</p>
 			{:else}
 				<div class="flex flex-wrap gap-2 mb-4">
 					{#each players as player}
 						<button
 							onclick={() => { selectedPlayer = player; }}
 							class="px-3 py-1.5 rounded-lg text-sm transition-colors {selectedPlayer === player
-								? 'bg-indigo-600 text-white'
-								: 'bg-slate-800 text-gray-300 hover:bg-slate-700'}"
+								? 'bg-purple-600 text-white'
+								: 'bg-obsidian-800 text-obsidian-200 hover:bg-obsidian-700'}"
 						>
 							{player}
 						</button>
@@ -128,8 +128,8 @@
 
 		{#if selectedPlayer}
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-				<div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-					<h3 class="text-sm font-medium text-gray-400 mb-3">Game Mode</h3>
+				<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5">
+					<h3 class="text-sm font-medium text-obsidian-200 mb-3">Game Mode</h3>
 					<div class="grid grid-cols-2 gap-2">
 						{#each gameModes as mode}
 							<button
@@ -142,14 +142,14 @@
 					</div>
 				</div>
 
-				<div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-					<h3 class="text-sm font-medium text-gray-400 mb-3">Moderation</h3>
+				<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5">
+					<h3 class="text-sm font-medium text-obsidian-200 mb-3">Moderation</h3>
 					<div class="grid grid-cols-2 gap-2">
 						<button onclick={() => showConfirm('kick')} class="px-3 py-2 text-sm bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors">Kick</button>
 						<button onclick={() => showConfirm('ban')} class="px-3 py-2 text-sm bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors">Ban</button>
 						<button onclick={() => showConfirm('ban-ip')} class="px-3 py-2 text-sm bg-rose-700 hover:bg-rose-600 text-white rounded-lg transition-colors">Ban IP</button>
 						<button onclick={() => showConfirm('op')} class="px-3 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors">Op</button>
-						<button onclick={() => showConfirm('deop')} class="px-3 py-2 text-sm bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors">Deop</button>
+						<button onclick={() => showConfirm('deop')} class="px-3 py-2 text-sm bg-obsidian-600 hover:bg-obsidian-500 text-white rounded-lg transition-colors">Deop</button>
 					</div>
 				</div>
 			</div>
@@ -159,19 +159,19 @@
 
 <Modal open={confirmOpen} title="Confirm Action" onclose={() => { confirmOpen = false; }}>
 	{#snippet children()}
-		<p class="text-gray-300 mb-4">
-			{confirmAction} <strong class="text-indigo-400">{selectedPlayer}</strong>?
+		<p class="text-obsidian-200 mb-4">
+			{confirmAction} <strong class="text-purple-400">{selectedPlayer}</strong>?
 		</p>
 		{#if confirmAction === 'ban' || confirmAction === 'kick' || confirmAction === 'ban-ip'}
 			<input
 				type="text"
 				bind:value={banReason}
 				placeholder="Reason (optional)"
-				class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-gray-100 text-sm mb-4"
+				class="w-full px-3 py-2 bg-obsidian-700 border border-obsidian-600 rounded-lg text-obsidian-100 text-sm mb-4"
 			/>
 		{/if}
 		<div class="flex gap-2 justify-end">
-			<button onclick={() => { confirmOpen = false; }} class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 text-sm rounded-lg">Cancel</button>
+			<button onclick={() => { confirmOpen = false; }} class="px-4 py-2 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-sm rounded-lg">Cancel</button>
 			<button onclick={executeConfirm} class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm rounded-lg">Confirm</button>
 		</div>
 	{/snippet}

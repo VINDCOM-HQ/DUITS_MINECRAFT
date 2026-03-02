@@ -4,12 +4,12 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install wget/curl, then download and install Oracle JDK 24
+# Install wget/curl, then download and install Oracle JDK 25 LTS
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends wget curl ca-certificates && \
-    wget -O /tmp/jdk-24_linux-x64_bin.deb https://download.oracle.com/java/24/latest/jdk-24_linux-x64_bin.deb && \
-    apt-get install -y /tmp/jdk-24_linux-x64_bin.deb && \
-    rm /tmp/jdk-24_linux-x64_bin.deb
+    wget -O /tmp/jdk-25_linux-x64_bin.deb https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.deb && \
+    apt-get install -y /tmp/jdk-25_linux-x64_bin.deb && \
+    rm /tmp/jdk-25_linux-x64_bin.deb
 
 # Verify Java installation
 RUN java -version
@@ -53,17 +53,19 @@ RUN mkdir -p \
   && (chown -R mysql:mysql /var/run/mysqld || true) \
   && chmod 755 /var/run/samba
 
-# ---------- 3) Download PaperMC ----------
-RUN wget -O /minecraft/paper.jar \
-    https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/69/downloads/paper-1.21.11-69.jar \
-  && chown minecraft:minecraft /minecraft/paper.jar
+# ---------- 3) Copy NetherDeck server jar ----------
+ARG LOADER=neoforge
+COPY ["NetherDeck Server/build/libs/", "/tmp/netherdeck-jars/"]
+RUN cp /tmp/netherdeck-jars/netherdeck-${LOADER}-*.jar /minecraft/paper.jar \
+  && chown minecraft:minecraft /minecraft/paper.jar \
+  && rm -rf /tmp/netherdeck-jars
 
 # ---------- 4) Copy configs & scripts ----------
-COPY DUITS_MINECRAFT/smb.conf               /etc/samba/smb.conf.tmpl
-COPY DUITS_MINECRAFT/supervisord.conf        /etc/supervisor/supervisord.conf.tmpl
-COPY DUITS_MINECRAFT/entrypoint.sh           /usr/local/bin/entrypoint.sh
-COPY DUITS_MINECRAFT/samba-repair.sh         /samba-repair.sh
-COPY DUITS_MINECRAFT/logrotate.conf          /etc/logrotate.d/minecraft
+COPY container/smb.conf               /etc/samba/smb.conf.tmpl
+COPY container/supervisord.conf        /etc/supervisor/supervisord.conf.tmpl
+COPY container/entrypoint.sh           /usr/local/bin/entrypoint.sh
+COPY container/samba-repair.sh         /samba-repair.sh
+COPY container/logrotate.conf          /etc/logrotate.d/minecraft
 RUN chmod +x /usr/local/bin/entrypoint.sh /samba-repair.sh
 
 # ---------- 5) Copy & install agent relay ----------

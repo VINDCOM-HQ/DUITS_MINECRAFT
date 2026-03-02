@@ -1,10 +1,10 @@
-# DUITS Minecraft RMM Agent Relay
+# VINDCOM NetherDeck Agent Relay
 
-A secure HTTP/S relay agent for the DUITS Minecraft RMM Tool. This agent allows you to expose Minecraft servers to the internet through a single port, with proper authentication and TLS encryption.
+A secure HTTP/S relay agent for VINDCOM NetherDeck. This agent allows you to expose Minecraft servers to the internet through a single port, with proper authentication and TLS encryption.
 
 ## Features
 
-- Single port HTTP/S relay for all DUITS Minecraft RMM Tool features
+- Single port HTTP/S relay for all VINDCOM NetherDeck features
 - Secure API key authentication
 - TLS/SSL support (both native and via reverse proxy)
 - WebSocket support for real-time communication
@@ -54,7 +54,7 @@ npm install
    # Interactive setup (recommended)
    npm run setup
    ```
-   
+
    This will guide you through creating a configuration and generating a secure API key.
 
 4. Install as a service:
@@ -179,13 +179,13 @@ The agent exposes the following endpoints:
 
 - **GET /health** - Health check and status
 - **GET /info** - Agent information
-- **RCON**: 
+- **RCON**:
   - **POST /rcon/connect** - Connect to a Minecraft server
   - **POST /rcon/command** - Send RCON command
   - **POST /rcon/disconnect** - Close RCON connection
-- **Query**: 
+- **Query**:
   - **GET /query** - Query server status
-- **SMB**: 
+- **SMB**:
   - **POST /smb/connect** - Connect to file share
   - **POST /smb/disconnect** - Close file share connection
   - **GET /smb/readdir** - List directory contents
@@ -193,7 +193,7 @@ The agent exposes the following endpoints:
   - **GET /smb/readFile** - Read file contents
   - **POST /smb/writeFile** - Write file contents
   - **POST /smb/unlink** - Delete file
-- **MySQL**: 
+- **MySQL**:
   - **POST /mysql/connect** - Connect to database
   - **POST /mysql/disconnect** - Close database connection
   - **POST /mysql/query** - Execute SQL query
@@ -206,7 +206,7 @@ The agent also provides WebSocket endpoints that match the HTTP API. This enable
 
 ## Desktop Client Configuration
 
-In the DUITS Minecraft RMM desktop application:
+In the VINDCOM NetherDeck desktop application:
 
 1. Go to Settings
 2. Enable "Use Remote Agent"

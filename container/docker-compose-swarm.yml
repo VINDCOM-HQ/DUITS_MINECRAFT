@@ -1,6 +1,6 @@
 services:
   paper-mc:
-    image: downunderit/minecraft:1.24.1
+    image: vindcom/netherdeck:1.24.1
     networks:
       - minecraft_network
     ports:

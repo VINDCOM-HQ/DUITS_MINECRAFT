@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * DUITS Minecraft RMM Agent Setup Script
+ * VINDCOM NetherDeck Agent Setup Script
  * 
  * Interactive setup script to configure the agent
  */
@@ -27,7 +27,7 @@ function generateApiKey(length = 32) {
 
 // Main setup function
 async function setupAgent() {
-  console.log('=== DUITS Minecraft RMM Agent Setup ===');
+  console.log('=== VINDCOM NetherDeck Agent Setup ===');
   
   // Check if .env already exists
   if (fs.existsSync(envPath)) {

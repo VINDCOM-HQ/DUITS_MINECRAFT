@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' ws: wss: ws://* wss://* http://* https://* localhost:*; script-src 'self'; style-src 'self' 'unsafe-inline';">
-  <title>DUITS Minecraft RMM Tool</title>
+  <title>NetherDeck</title>
   <link rel="stylesheet" href="tailwind.css" />
   <style>
-    body { overflow: hidden; background-color: #0f172a; }
+    body { overflow: hidden; background-color: #0a0014; }
     /* Custom scrollbars */
     *::-webkit-scrollbar { width:6px; height:6px; }
-    *::-webkit-scrollbar-track { background:#1e293b; }
-    *::-webkit-scrollbar-thumb { background:#475569; border-radius:8px; }
-    *::-webkit-scrollbar-thumb:hover { background:#64748b; }
+    *::-webkit-scrollbar-track { background:#130826; }
+    *::-webkit-scrollbar-thumb { background:#3d2a66; border-radius:8px; }
+    *::-webkit-scrollbar-thumb:hover { background:#5b3d8a; }
     /* Firefox */
-    * { scrollbar-width: thin; scrollbar-color: #475569 #1e293b; }
+    * { scrollbar-width: thin; scrollbar-color: #3d2a66 #130826; }
     
     /* Animations */
     .fade-in { animation: fadeIn 0.2s ease-in-out; }
@@ -25,11 +25,11 @@
     
     /* Tooltip */
     .tooltip { position: relative; }
-    .tooltip .tooltip-text { visibility: hidden; position: absolute; z-index: 100; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #1e293b; color: white; text-align: center; padding: 4px 8px; border-radius: 6px; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
+    .tooltip .tooltip-text { visibility: hidden; position: absolute; z-index: 100; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #130826; color: white; text-align: center; padding: 4px 8px; border-radius: 6px; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
     .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
     
     /* Highlight Active Section */
-    .nav-item.active { background-color: rgba(79, 70, 229, 0.2); border-left: 3px solid #6366f1; }
+    .nav-item.active { background-color: rgba(168, 85, 247, 0.2); border-left: 3px solid #a855f7; }
     
     /* Fixed width buttons */
     .btn-action {
@@ -37,17 +37,27 @@
       text-align: center;
       white-space: nowrap;
     }
+
+    /* Logo glow */
+    .logo-glow {
+      filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.5));
+      animation: logo-pulse 3s ease-in-out infinite;
+    }
+    @keyframes logo-pulse {
+      0%, 100% { filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.5)); }
+      50% { filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.7)) drop-shadow(0 0 20px rgba(217, 70, 239, 0.3)); }
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-gray-100 min-h-screen font-sans">
+<body class="bg-obsidian-950 text-obsidian-100 min-h-screen font-sans">
   <!-- Password Prompt Modal -->
   <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-    <div class="bg-slate-800 p-6 rounded-xl max-w-sm w-full shadow-2xl border border-slate-700 fade-in">
+    <div class="bg-obsidian-800 p-6 rounded-xl max-w-sm w-full shadow-2xl border border-obsidian-600 fade-in">
       <h2 id="password-modal-title" class="text-lg font-medium text-white mb-4">Enter password to unlock data</h2>
-      <input id="password-modal-input" type="password" placeholder="Password" class="w-full px-4 py-2 mb-4 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white transition-colors" />
+      <input id="password-modal-input" type="password" placeholder="Password" class="w-full px-4 py-2 mb-4 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white transition-colors" />
       <div class="flex justify-end space-x-2">
-        <button id="password-modal-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors">Cancel</button>
-        <button id="password-modal-ok" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white transition-colors">OK</button>
+        <button id="password-modal-cancel" class="px-4 py-2 bg-obsidian-700 hover:bg-obsidian-600 rounded-lg text-white transition-colors">Cancel</button>
+        <button id="password-modal-ok" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white transition-colors">OK</button>
       </div>
       <div id="password-modal-error" class="text-red-500 mt-2 text-sm hidden"></div>
     </div>
@@ -55,11 +65,11 @@
   
   <!-- Confirmation Modal -->
   <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-    <div class="bg-slate-800 p-6 rounded-xl max-w-sm w-full shadow-2xl border border-slate-700 fade-in">
+    <div class="bg-obsidian-800 p-6 rounded-xl max-w-sm w-full shadow-2xl border border-obsidian-600 fade-in">
       <h2 id="confirm-modal-title" class="text-lg font-medium text-white mb-4">Confirm action</h2>
       <div class="flex justify-end space-x-2">
-        <button id="confirm-modal-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors">Cancel</button>
-        <button id="confirm-modal-ok" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white transition-colors">OK</button>
+        <button id="confirm-modal-cancel" class="px-4 py-2 bg-obsidian-700 hover:bg-obsidian-600 rounded-lg text-white transition-colors">Cancel</button>
+        <button id="confirm-modal-ok" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white transition-colors">OK</button>
       </div>
     </div>
   </div>
@@ -67,32 +77,32 @@
   <div id="app" class="hidden w-full mx-auto h-screen">
     <div class="flex h-full overflow-hidden">
       <!-- Sidebar -->
-      <aside class="w-64 bg-slate-900 flex-shrink-0 shadow-lg border-r border-slate-800">
+      <aside class="w-64 bg-obsidian-900 flex-shrink-0 shadow-lg border-r border-obsidian-700">
         <!-- Logo and Title -->
-        <div class="p-5 border-b border-slate-800">
+        <div class="p-5 border-b border-obsidian-700">
             <h1 class="text-xl font-bold text-white flex items-center">
               <!-- SVG logo file -->
-              <img src="logo.svg" alt="DUITS Logo" class="h-8 w-8 mr-3">
-              DUITS Minecraft RMM
+              <img src="logo.svg" alt="NetherDeck Logo" class="h-8 w-8 mr-3 logo-glow">
+              NetherDeck
             </h1>
         </div>
         
         <nav class="flex flex-col p-3 space-y-1">
-          <button id="tab-connection" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-indigo-600/30 rounded-lg transition-colors">
+          <button id="tab-connection" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-obsidian-200 hover:text-white hover:bg-purple-600/30 rounded-lg transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clip-rule="evenodd" />
             </svg>
             Server Connection
           </button>
           
-          <button id="tab-actions" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-indigo-600/30 rounded-lg transition-colors">
+          <button id="tab-actions" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-obsidian-200 hover:text-white hover:bg-purple-600/30 rounded-lg transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
             </svg>
             Server Actions
           </button>
           
-          <button id="tab-storage" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-indigo-600/30 rounded-lg transition-colors">
+          <button id="tab-storage" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-obsidian-200 hover:text-white hover:bg-purple-600/30 rounded-lg transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
               <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
               <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd" />
@@ -100,7 +110,7 @@
             Server Storage
           </button>
           
-          <button id="tab-mysql" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-indigo-600/30 rounded-lg transition-colors">
+          <button id="tab-mysql" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-obsidian-200 hover:text-white hover:bg-purple-600/30 rounded-lg transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
               <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" />
               <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" />
@@ -109,7 +119,7 @@
             Database
           </button>
           
-          <button id="tab-settings" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-indigo-600/30 rounded-lg transition-colors">
+          <button id="tab-settings" type="button" class="nav-item flex items-center px-4 py-3 text-sm font-medium text-obsidian-200 hover:text-white hover:bg-purple-600/30 rounded-lg transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
             </svg>
@@ -118,10 +128,10 @@
         </nav>
         
         <!-- Status Display -->
-        <div class="absolute bottom-0 left-0 w-64 bg-slate-800 p-4 border-t border-slate-700">
+        <div class="absolute bottom-0 left-0 w-64 bg-obsidian-800 p-4 border-t border-obsidian-600">
           <!-- Server Status -->
           <div class="mb-3">
-            <div class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Server Connection</div>
+            <div class="text-xs text-obsidian-200 font-semibold uppercase tracking-wider mb-1">Server Connection</div>
             <div class="flex items-center text-sm">
               <div class="tooltip">
                 <div id="server-status-indicator" class="flex-shrink-0 h-2 w-2 rounded-full bg-gray-400 mr-2"></div>
@@ -133,7 +143,7 @@
           
           <!-- Agent Status -->
           <div id="agent-status-container" class="hidden">
-            <div class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Agent Relay</div>
+            <div class="text-xs text-obsidian-200 font-semibold uppercase tracking-wider mb-1">Agent Relay</div>
             <div class="flex items-center text-sm">
               <div class="tooltip">
                 <div id="agent-status-indicator" class="flex-shrink-0 h-2 w-2 rounded-full bg-gray-400 mr-2"></div>
@@ -144,55 +154,55 @@
           </div>
   <!-- Storage Status -->
   <div class="mb-3">
-    <div class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Server Storage</div>
+    <div class="text-xs text-obsidian-200 font-semibold uppercase tracking-wider mb-1">Server Storage</div>
     <div class="flex items-center text-sm">
       <div class="tooltip">
         <div id="smb-status-indicator-sidebar" class="flex-shrink-0 h-2 w-2 rounded-full bg-gray-400 mr-2"></div>
         <span class="tooltip-text">● Green: Connected ● Red: Error ● Gray: Not connected</span>
       </div>
-      <span id="smb-status-sidebar" class="text-sm italic text-gray-300">Not connected</span>
+      <span id="smb-status-sidebar" class="text-sm italic text-obsidian-200">Not connected</span>
     </div>
   </div>
   <!-- Database Status -->
   <div class="mb-3">
-    <div class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Database</div>
+    <div class="text-xs text-obsidian-200 font-semibold uppercase tracking-wider mb-1">Database</div>
     <div class="flex items-center text-sm">
       <div class="tooltip">
         <div id="mysql-status-indicator-sidebar" class="flex-shrink-0 h-2 w-2 rounded-full bg-gray-400 mr-2"></div>
         <span class="tooltip-text">● Green: Connected ● Red: Error ● Gray: Not connected</span>
       </div>
-      <span id="mysql-status-sidebar" class="text-sm italic text-gray-300">Not connected</span>
+      <span id="mysql-status-sidebar" class="text-sm italic text-obsidian-200">Not connected</span>
     </div>
   </div>
         </div>
       </aside>
       
       <!-- Main Content -->
-      <main class="flex-1 overflow-y-auto bg-slate-900 p-6">
+      <main class="flex-1 overflow-y-auto bg-obsidian-900 p-6">
         <!-- Connection Section -->
         <div id="connection-section" class="space-y-6">
           <!-- Connection Settings Card -->
-          <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden">
-            <div id="conn-settings-header" class="flex justify-between items-center cursor-pointer bg-slate-700 p-4 hover:bg-slate-600 transition-colors">
+          <div class="bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 overflow-hidden">
+            <div id="conn-settings-header" class="flex justify-between items-center cursor-pointer bg-obsidian-700 p-4 hover:bg-obsidian-600 transition-colors">
               <h2 class="text-lg font-medium flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clip-rule="evenodd" />
                 </svg>
                 Connection Settings
               </h2>
-              <svg id="conn-toggle-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transform transition-transform text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+              <svg id="conn-toggle-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transform transition-transform text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 111.14.976l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
               </svg>
             </div>
             
-            <div id="conn-settings-panel" class="p-5 border-t border-slate-700 space-y-6">
+            <div id="conn-settings-panel" class="p-5 border-t border-obsidian-600 space-y-6">
               <!-- Server List Management -->
               <div class="space-y-3">
-                <label class="block text-sm font-medium text-gray-300">Saved Connections</label>
-                <select id="server-list" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white">
+                <label class="block text-sm font-medium text-obsidian-200">Saved Connections</label>
+                <select id="server-list" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white">
                 </select>
                 <div class="flex space-x-2 mt-2">
-                  <button id="add-server-btn" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold text-white transition-colors btn-action">Add</button>
+                  <button id="add-server-btn" class="flex-1 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold text-white transition-colors btn-action">Add</button>
                   <button id="edit-server-btn" class="flex-1 py-2 bg-amber-500 hover:bg-amber-400 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 btn-action">Edit</button>
                   <button id="remove-server-btn" class="flex-1 py-2 bg-rose-600 hover:bg-rose-500 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 btn-action">Remove</button>
                 </div>
@@ -202,26 +212,26 @@
               <!-- Layout: host and port side-by-side on sm+, password on its own row -->
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label for="host" class="block text-sm font-medium mb-1 text-gray-300">Host</label>
-                  <input id="host" type="text" value="127.0.0.1" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" style="width: calc(100% - 5px);" />
+                  <label for="host" class="block text-sm font-medium mb-1 text-obsidian-200">Host</label>
+                  <input id="host" type="text" value="127.0.0.1" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" style="width: calc(100% - 5px);" />
                 </div>
                 <div>
-                  <label for="port" class="block text-sm font-medium mb-1 text-gray-300">Port</label>
-                  <input id="port" type="number" value="25575" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" style="width: calc(100% + 5px);" />
+                  <label for="port" class="block text-sm font-medium mb-1 text-obsidian-200">Port</label>
+                  <input id="port" type="number" value="25575" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" style="width: calc(100% + 5px);" />
                 </div>
                 <div class="sm:col-span-2">
-                  <label for="password" class="block text-sm font-medium mb-1 text-gray-300">Password</label>
-                  <input id="password" type="password" placeholder="RCON password" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
+                  <label for="password" class="block text-sm font-medium mb-1 text-obsidian-200">Password</label>
+                  <input id="password" type="password" placeholder="RCON password" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
                 </div>
               </div>
 
               <!-- Log Path + Buttons -->
               <div class="flex items-end space-x-4">
                 <div class="flex-1">
-                  <label for="logpath" class="block text-sm font-medium mb-1 text-gray-300">Log File Path</label>
-                  <input id="logpath" readonly placeholder="Click to choose folder" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white cursor-pointer" />
+                  <label for="logpath" class="block text-sm font-medium mb-1 text-obsidian-200">Log File Path</label>
+                  <input id="logpath" readonly placeholder="Click to choose folder" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white cursor-pointer" />
                 </div>
-                <button id="startLogBtn" disabled class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold disabled:opacity-50 text-white transition-colors btn-action">
+                <button id="startLogBtn" disabled class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold disabled:opacity-50 text-white transition-colors btn-action">
                   Start Logging
                 </button>
               </div>
@@ -257,11 +267,11 @@
           </div>
 
           <!-- Query Section -->
-          <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-5 space-y-4">
-            <label class="block text-sm font-medium text-gray-300" for="query-port">Query Port</label>
+          <div class="bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 p-5 space-y-4">
+            <label class="block text-sm font-medium text-obsidian-200" for="query-port">Query Port</label>
             <div class="grid grid-cols-12 gap-2">
-              <input id="query-port" type="number" value="25565" class="col-span-6 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
-              <select id="query-mode" class="col-span-3 px-3 py-2 text-sm rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white">
+              <input id="query-port" type="number" value="25565" class="col-span-6 px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
+              <select id="query-mode" class="col-span-3 px-3 py-2 text-sm rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white">
                 <option value="basic">Basic</option>
                 <option value="full">Full</option>
               </select>
@@ -275,8 +285,8 @@
               </button>
             </div>
             <div>
-              <h2 class="text-lg font-medium mb-2 text-gray-200">Query Output</h2>
-              <div id="query-output" class="w-full h-[210px] p-3 bg-slate-950 rounded-lg overflow-y-auto text-amber-400 text-sm font-mono border border-slate-800"></div>
+              <h2 class="text-lg font-medium mb-2 text-obsidian-100">Query Output</h2>
+              <div id="query-output" class="w-full h-[210px] p-3 bg-obsidian-950 rounded-lg overflow-y-auto text-amber-400 text-sm font-mono border border-obsidian-700"></div>
             </div>
           </div>
         </div> <!-- end connection-section -->
@@ -290,11 +300,11 @@
           </div>
           
           <!-- Tabs -->
-          <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden">
-            <div class="flex border-b border-slate-700">
-              <button id="tab-console" type="button" class="px-6 py-3 text-sm font-medium text-indigo-400 border-b-2 border-indigo-500 focus:outline-none">Console</button>
-              <button id="tab-players" type="button" class="px-6 py-3 text-sm font-medium text-gray-400 hover:text-indigo-400 border-b-2 border-transparent hover:border-indigo-400 focus:outline-none transition-colors">Players</button>
-              <button id="tab-server-functions" type="button" class="px-6 py-3 text-sm font-medium text-gray-400 hover:text-indigo-400 border-b-2 border-transparent hover:border-indigo-400 focus:outline-none transition-colors">Server Functions</button>
+          <div class="bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 overflow-hidden">
+            <div class="flex border-b border-obsidian-600">
+              <button id="tab-console" type="button" class="px-6 py-3 text-sm font-medium text-purple-400 border-b-2 border-purple-500 focus:outline-none">Console</button>
+              <button id="tab-players" type="button" class="px-6 py-3 text-sm font-medium text-obsidian-200 hover:text-purple-400 border-b-2 border-transparent hover:border-purple-400 focus:outline-none transition-colors">Players</button>
+              <button id="tab-server-functions" type="button" class="px-6 py-3 text-sm font-medium text-obsidian-200 hover:text-purple-400 border-b-2 border-transparent hover:border-purple-400 focus:outline-none transition-colors">Server Functions</button>
             </div>
             
             <div class="p-5">
@@ -302,15 +312,15 @@
               <div id="console-section" class="space-y-4">
                 <!-- RCON Command Input -->
                 <div class="space-y-2 relative">
-                  <label for="command" class="block text-sm font-medium text-gray-300">Command</label>
+                  <label for="command" class="block text-sm font-medium text-obsidian-200">Command</label>
                   <div class="flex">
-                    <input id="command" type="text" placeholder="Enter command" class="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" autocomplete="off" />
-                    <button id="toggleCmdListBtn" class="ml-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-white">
+                    <input id="command" type="text" placeholder="Enter command" class="flex-1 px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" autocomplete="off" />
+                    <button id="toggleCmdListBtn" class="ml-2 px-3 py-2 bg-obsidian-700 hover:bg-obsidian-600 rounded-lg transition-colors text-white">
                       ▼
                     </button>
                   </div>
-                  <div id="autocomplete" class="absolute z-10 mt-1 w-full bg-slate-700 rounded-lg overflow-y-auto max-h-40 hidden border border-slate-600 shadow-lg"></div>
-                  <button id="sendBtn" disabled class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold disabled:opacity-50 text-white transition-colors">
+                  <div id="autocomplete" class="absolute z-10 mt-1 w-full bg-obsidian-700 rounded-lg overflow-y-auto max-h-40 hidden border border-obsidian-500 shadow-lg"></div>
+                  <button id="sendBtn" disabled class="w-full py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold disabled:opacity-50 text-white transition-colors">
                     <span class="flex items-center justify-center">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
@@ -322,32 +332,32 @@
 
                 <!-- RCON Output Console -->
                 <div>
-                  <h2 class="text-lg font-medium mb-2 text-gray-200">Output</h2>
-                  <pre id="output" class="w-full h-64 p-3 bg-slate-950 rounded-lg overflow-y-auto whitespace-pre-wrap text-green-400 font-mono text-sm border border-slate-800"></pre>
+                  <h2 class="text-lg font-medium mb-2 text-obsidian-100">Output</h2>
+                  <pre id="output" class="w-full h-64 p-3 bg-obsidian-950 rounded-lg overflow-y-auto whitespace-pre-wrap text-green-400 font-mono text-sm border border-obsidian-700"></pre>
                 </div>
               </div>
               
               <!-- Player Management Section -->
               <div id="player-management" class="space-y-4 hidden">
-                <h2 class="text-lg font-medium mb-2 text-gray-200 flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                <h2 class="text-lg font-medium mb-2 text-obsidian-100 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                   </svg>
                   Player Management
                 </h2>
                 <div class="grid grid-cols-12 gap-2 items-center">
-                  <label for="player-select" class="col-span-2 text-sm font-medium text-gray-300">Player:</label>
-                  <select id="player-select" class="col-span-7 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white"></select>
-                  <button id="refresh-players" class="col-span-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white transition-colors flex justify-center">
+                  <label for="player-select" class="col-span-2 text-sm font-medium text-obsidian-200">Player:</label>
+                  <select id="player-select" class="col-span-7 px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white"></select>
+                  <button id="refresh-players" class="col-span-1 py-2 bg-obsidian-700 hover:bg-obsidian-600 rounded-lg font-semibold text-white transition-colors flex justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
                     </svg>
                   </button>
-                  <span id="player-count" class="col-span-2 text-sm text-gray-300 italic text-right"></span>
+                  <span id="player-count" class="col-span-2 text-sm text-obsidian-200 italic text-right"></span>
                 </div>
                 <div class="space-y-4">
-                  <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <h3 class="text-sm font-semibold mb-2 text-gray-200">Game Mode</h3>
+                  <div class="bg-obsidian-800 rounded-lg p-3 border border-obsidian-600">
+                    <h3 class="text-sm font-semibold mb-2 text-obsidian-100">Game Mode</h3>
                     <div class="grid grid-cols-4 gap-2">
                       <button data-action="survival" class="action-btn text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white transition-colors">Survival</button>
                       <button data-action="creative" class="action-btn text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white transition-colors">Creative</button>
@@ -355,27 +365,27 @@
                       <button data-action="spectator" class="action-btn text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white transition-colors">Spectator</button>
                     </div>
                   </div>
-                  <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <h3 class="text-sm font-semibold mb-2 text-gray-200">Moderation</h3>
+                  <div class="bg-obsidian-800 rounded-lg p-3 border border-obsidian-600">
+                    <h3 class="text-sm font-semibold mb-2 text-obsidian-100">Moderation</h3>
                     <div class="grid grid-cols-3 gap-2">
                       <button data-action="ban" class="action-btn text-sm px-3 py-2 bg-rose-600 hover:bg-rose-500 rounded-lg text-white transition-colors">Ban</button>
                       <button data-action="kick" class="action-btn text-sm px-3 py-2 bg-rose-600 hover:bg-rose-500 rounded-lg text-white transition-colors">Kick</button>
                       <button data-action="ban-ip" class="action-btn text-sm px-3 py-2 bg-rose-600 hover:bg-rose-500 rounded-lg text-white transition-colors">Ban IP</button>
                     </div>
                   </div>
-                  <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <h3 class="text-sm font-semibold mb-2 text-gray-200">Administration</h3>
+                  <div class="bg-obsidian-800 rounded-lg p-3 border border-obsidian-600">
+                    <h3 class="text-sm font-semibold mb-2 text-obsidian-100">Administration</h3>
                     <div class="grid grid-cols-2 gap-2">
                       <button data-action="op" class="action-btn text-sm px-3 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-white transition-colors">Op</button>
                       <button data-action="deop" class="action-btn text-sm px-3 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-white transition-colors">Deop</button>
                     </div>
                   </div>
-                  <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <h3 class="text-sm font-semibold mb-2 text-gray-200">Player Stats</h3>
-                    <p class="text-xs text-gray-300 mb-2">Current Player Position</p>
+                  <div class="bg-obsidian-800 rounded-lg p-3 border border-obsidian-600">
+                    <h3 class="text-sm font-semibold mb-2 text-obsidian-100">Player Stats</h3>
+                    <p class="text-xs text-obsidian-200 mb-2">Current Player Position</p>
                     <div class="flex items-center space-x-2">
-                      <div id="player-stats" class="px-3 py-2 bg-slate-700 rounded-lg text-sm font-mono text-gray-100 flex-1">N/A</div>
-                      <button id="refresh-stats-btn" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold text-white transition-colors">
+                      <div id="player-stats" class="px-3 py-2 bg-obsidian-700 rounded-lg text-sm font-mono text-obsidian-100 flex-1">N/A</div>
+                      <button id="refresh-stats-btn" class="px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm font-semibold text-white transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                           <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
                         </svg>
@@ -388,7 +398,7 @@
               <!-- Server Functions Section -->
               <div id="server-functions" class="space-y-4 hidden">
                 <!-- Banned Players Panel -->
-                <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                <div class="bg-obsidian-800 rounded-lg p-4 border border-obsidian-600">
                   <div id="banned-players-header" class="flex justify-between items-center cursor-pointer mb-4">
                     <h3 class="text-lg font-semibold text-white flex items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-rose-500" viewBox="0 0 20 20" fill="currentColor">
@@ -396,13 +406,13 @@
                       </svg>
                       Banned Players
                     </h3>
-                    <svg id="banned-players-toggle" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                    <svg id="banned-players-toggle" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                       <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                   </div>
                   <div id="banned-section" class="space-y-3">
                     <div class="flex items-center space-x-2">
-                      <button id="refresh-banned-btn" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white text-sm transition-colors">
+                      <button id="refresh-banned-btn" class="px-3 py-2 bg-obsidian-700 hover:bg-obsidian-600 rounded-lg font-semibold text-white text-sm transition-colors">
                         <span class="flex items-center">
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
@@ -410,16 +420,16 @@
                           Refresh List
                         </span>
                       </button>
-                      <span id="banned-count" class="text-sm text-gray-300 italic"></span>
+                      <span id="banned-count" class="text-sm text-obsidian-200 italic"></span>
                     </div>
-                    <div class="bg-slate-900 rounded-lg p-3 border border-slate-700 max-h-60 overflow-y-auto">
-                      <ul id="banned-list" class="list-disc pl-5 text-sm text-gray-100 space-y-1"></ul>
+                    <div class="bg-obsidian-900 rounded-lg p-3 border border-obsidian-600 max-h-60 overflow-y-auto">
+                      <ul id="banned-list" class="list-disc pl-5 text-sm text-obsidian-100 space-y-1"></ul>
                     </div>
                   </div>
                 </div>
                 
                 <!-- Banned IPs Panel -->
-                <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                <div class="bg-obsidian-800 rounded-lg p-4 border border-obsidian-600">
                   <div id="banned-ips-header" class="flex justify-between items-center cursor-pointer mb-4">
                     <h3 class="text-lg font-semibold text-white flex items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-rose-500" viewBox="0 0 20 20" fill="currentColor">
@@ -427,13 +437,13 @@
                       </svg>
                       Banned IPs
                     </h3>
-                    <svg id="banned-ips-toggle" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                    <svg id="banned-ips-toggle" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                       <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                   </div>
                   <div id="banned-ips-section" class="space-y-3">
                     <div class="flex items-center space-x-2">
-                      <button id="refresh-banned-ips-btn" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white text-sm transition-colors">
+                      <button id="refresh-banned-ips-btn" class="px-3 py-2 bg-obsidian-700 hover:bg-obsidian-600 rounded-lg font-semibold text-white text-sm transition-colors">
                         <span class="flex items-center">
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
@@ -441,16 +451,16 @@
                           Refresh List
                         </span>
                       </button>
-                      <span id="banned-ips-count" class="text-sm text-gray-300 italic"></span>
+                      <span id="banned-ips-count" class="text-sm text-obsidian-200 italic"></span>
                     </div>
-                    <div class="bg-slate-900 rounded-lg p-3 border border-slate-700 max-h-60 overflow-y-auto">
-                      <ul id="banned-ips-list" class="list-disc pl-5 text-sm text-gray-100 space-y-1"></ul>
+                    <div class="bg-obsidian-900 rounded-lg p-3 border border-obsidian-600 max-h-60 overflow-y-auto">
+                      <ul id="banned-ips-list" class="list-disc pl-5 text-sm text-obsidian-100 space-y-1"></ul>
                     </div>
                   </div>
                 </div>
                 
                 <!-- Server Control Functions -->
-                <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                <div class="bg-obsidian-800 rounded-lg p-4 border border-obsidian-600">
                   <div id="server-commands-header" class="flex justify-between items-center cursor-pointer mb-4">
                     <h3 class="text-lg font-semibold text-white flex items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
@@ -458,75 +468,75 @@
                       </svg>
                       Server Controls
                     </h3>
-                    <svg id="server-commands-toggle" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                    <svg id="server-commands-toggle" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                       <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                   </div>
                   
                   <div id="server-commands-panel" class="space-y-4">
                     <!-- Tick Rate Controls -->
-                    <div class="bg-slate-700 rounded-lg p-3 border border-slate-600">
-                      <h4 class="text-sm font-semibold mb-2 text-gray-200">Tick Rate Control</h4>
+                    <div class="bg-obsidian-700 rounded-lg p-3 border border-obsidian-500">
+                      <h4 class="text-sm font-semibold mb-2 text-obsidian-100">Tick Rate Control</h4>
                       <div class="flex items-center space-x-2">
-                        <input id="tick-rate-value" type="number" min="1" max="100" value="20" class="w-20 px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-sm">
-                        <button id="cmd-tick-set" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold text-white transition-colors">
+                        <input id="tick-rate-value" type="number" min="1" max="100" value="20" class="w-20 px-3 py-1 bg-obsidian-800 text-white rounded border border-obsidian-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-sm">
+                        <button id="cmd-tick-set" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm font-semibold text-white transition-colors">
                           Set Tick Rate
                         </button>
                       </div>
                     </div>
                     
                     <!-- Idle Timeout Controls -->
-                    <div class="bg-slate-700 rounded-lg p-3 border border-slate-600">
-                      <h4 class="text-sm font-semibold mb-2 text-gray-200">Idle Timeout</h4>
+                    <div class="bg-obsidian-700 rounded-lg p-3 border border-obsidian-500">
+                      <h4 class="text-sm font-semibold mb-2 text-obsidian-100">Idle Timeout</h4>
                       <div class="flex items-center space-x-2">
-                        <input id="idle-timeout-value" type="number" min="0" max="60" value="10" class="w-20 px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-sm">
-                        <span class="text-xs text-gray-300">minutes</span>
-                        <button id="cmd-idle-timeout" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold text-white transition-colors">
+                        <input id="idle-timeout-value" type="number" min="0" max="60" value="10" class="w-20 px-3 py-1 bg-obsidian-800 text-white rounded border border-obsidian-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-sm">
+                        <span class="text-xs text-obsidian-200">minutes</span>
+                        <button id="cmd-idle-timeout" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm font-semibold text-white transition-colors">
                           Set Timeout
                         </button>
                       </div>
                     </div>
                     
                     <!-- Time Controls -->
-                    <div class="bg-slate-700 rounded-lg p-3 border border-slate-600">
-                      <h4 class="text-sm font-semibold mb-2 text-gray-200">Time Control</h4>
+                    <div class="bg-obsidian-700 rounded-lg p-3 border border-obsidian-500">
+                      <h4 class="text-sm font-semibold mb-2 text-obsidian-100">Time Control</h4>
                       <div class="flex items-center space-x-2 mb-2">
-                        <select id="time-preset" class="px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-sm">
+                        <select id="time-preset" class="px-3 py-1 bg-obsidian-800 text-white rounded border border-obsidian-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-sm">
                           <option value="0">Dawn (0)</option>
                           <option value="6000">Noon (6000)</option>
                           <option value="12000">Sunset (12000)</option>
                           <option value="18000">Midnight (18000)</option>
                           <option value="custom">Custom</option>
                         </select>
-                        <input id="time-custom-value" type="number" min="0" max="24000" value="0" class="w-24 px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-sm hidden">
-                        <button id="cmd-set-time" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold text-white transition-colors">
+                        <input id="time-custom-value" type="number" min="0" max="24000" value="0" class="w-24 px-3 py-1 bg-obsidian-800 text-white rounded border border-obsidian-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-sm hidden">
+                        <button id="cmd-set-time" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm font-semibold text-white transition-colors">
                           Set Time
                         </button>
                       </div>
                     </div>
                     
                     <!-- Weather Controls -->
-                    <div class="bg-slate-700 rounded-lg p-3 border border-slate-600">
-                      <h4 class="text-sm font-semibold mb-2 text-gray-200">Weather Control</h4>
+                    <div class="bg-obsidian-700 rounded-lg p-3 border border-obsidian-500">
+                      <h4 class="text-sm font-semibold mb-2 text-obsidian-100">Weather Control</h4>
                       <div class="flex items-center space-x-2">
-                        <select id="weather-type" class="px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-sm">
+                        <select id="weather-type" class="px-3 py-1 bg-obsidian-800 text-white rounded border border-obsidian-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-sm">
                           <option value="clear">Clear</option>
                           <option value="rain">Rain</option>
                           <option value="thunder">Thunder</option>
                         </select>
-                        <button id="cmd-set-weather" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold text-white transition-colors">
+                        <button id="cmd-set-weather" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm font-semibold text-white transition-colors">
                           Set Weather
                         </button>
                       </div>
                     </div>
                     
                     <!-- Quick Commands -->
-                    <div class="bg-slate-700 rounded-lg p-3 border border-slate-600">
-                      <h4 class="text-sm font-semibold mb-3 text-gray-200">Quick Commands</h4>
+                    <div class="bg-obsidian-700 rounded-lg p-3 border border-obsidian-500">
+                      <h4 class="text-sm font-semibold mb-3 text-obsidian-100">Quick Commands</h4>
 
                       <!-- Server Actions -->
                       <div class="mb-3">
-                        <span class="text-xs text-gray-400 uppercase tracking-wide">Server</span>
+                        <span class="text-xs text-obsidian-200 uppercase tracking-wide">Server</span>
                         <div class="grid grid-cols-2 gap-2 mt-1">
                           <button data-command="save-all" class="cmd-btn px-3 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white transition-colors">
                             Save World
@@ -539,7 +549,7 @@
 
                       <!-- Difficulty Settings -->
                       <div>
-                        <span class="text-xs text-gray-400 uppercase tracking-wide">Difficulty</span>
+                        <span class="text-xs text-obsidian-200 uppercase tracking-wide">Difficulty</span>
                         <div class="grid grid-cols-2 gap-2 mt-1">
                           <button data-command="difficulty peaceful" class="cmd-btn px-3 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-xs font-semibold text-white transition-colors">
                             Peaceful
@@ -564,46 +574,46 @@
         </div> <!-- end actions-section -->
         
         <div id="storage-section" class="hidden space-y-6">
-          <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-5">
+          <div class="bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 p-5">
           <!-- Saved SMB Shares Management -->
             <div class="space-y-3">
-              <label class="block text-sm font-medium text-gray-300">Saved Connections</label>
-              <select id="smb-share-list" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white"></select>
+              <label class="block text-sm font-medium text-obsidian-200">Saved Connections</label>
+              <select id="smb-share-list" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white"></select>
               <div class="flex space-x-2 mt-2">
-                <button id="smb-add-share-btn" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold text-white transition-colors btn-action">Add</button>
+                <button id="smb-add-share-btn" class="flex-1 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold text-white transition-colors btn-action">Add</button>
                 <button id="smb-edit-share-btn" class="flex-1 py-2 bg-amber-500 hover:bg-amber-400 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 btn-action">Edit</button>
                 <button id="smb-remove-share-btn" class="flex-1 py-2 bg-rose-600 hover:bg-rose-500 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 btn-action">Remove</button>
               </div>
             </div>
             
-            <div id="smb-settings-header" class="flex items-center justify-between cursor-pointer bg-slate-700 p-4 hover:bg-slate-600 rounded-lg transition-colors mt-5">
+            <div id="smb-settings-header" class="flex items-center justify-between cursor-pointer bg-obsidian-700 p-4 hover:bg-obsidian-600 rounded-lg transition-colors mt-5">
               <h2 class="text-lg font-medium text-white flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
                   <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd" />
                 </svg>
                 Storage Settings
               </h2>
-              <span id="smb-toggle-icon" class="transform transition-transform text-indigo-400">▼</span>
+              <span id="smb-toggle-icon" class="transform transition-transform text-purple-400">▼</span>
             </div>
             <div id="smb-settings-panel" class="space-y-4 mt-4">
               <!-- SMB Connection Form -->
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium mb-1 text-gray-300" for="smb-host">Host / IP / DNS</label>
-                  <input id="smb-host" type="text" placeholder="server.domain.com or 192.168.1.100" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white"/>
+                  <label class="block text-sm font-medium mb-1 text-obsidian-200" for="smb-host">Host / IP / DNS</label>
+                  <input id="smb-host" type="text" placeholder="server.domain.com or 192.168.1.100" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white"/>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium mb-1 text-gray-300" for="smb-share">Share</label>
-                  <input id="smb-share" type="text" placeholder="share" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white"/>
+                  <label class="block text-sm font-medium mb-1 text-obsidian-200" for="smb-share">Share</label>
+                  <input id="smb-share" type="text" placeholder="share" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white"/>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium mb-1 text-gray-300" for="smb-username">Username</label>
-                  <input id="smb-username" type="text" placeholder="Optional" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white"/>
+                  <label class="block text-sm font-medium mb-1 text-obsidian-200" for="smb-username">Username</label>
+                  <input id="smb-username" type="text" placeholder="Optional" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white"/>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium mb-1 text-gray-300" for="smb-password">Password</label>
-                  <input id="smb-password" type="password" placeholder="Optional" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white"/>
+                  <label class="block text-sm font-medium mb-1 text-obsidian-200" for="smb-password">Password</label>
+                  <input id="smb-password" type="password" placeholder="Optional" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white"/>
                 </div>
               </div>
             </div>
@@ -631,16 +641,16 @@
                   <div id="smb-status-indicator" class="flex-shrink-0 h-2 w-2 rounded-full bg-gray-400 mr-2"></div>
                   <span class="tooltip-text">● Green: Connected ● Red: Error ● Gray: Not connected</span>
                 </div>
-                <span id="smb-status" class="text-sm italic text-gray-300">Not connected</span>
+                <span id="smb-status" class="text-sm italic text-obsidian-200">Not connected</span>
               </div>
             </div>
           </div>
           
           <!-- File Browser -->
           <div id="smb-browser" class="hidden space-y-4">
-            <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-5">
+            <div class="bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 p-5">
               <div class="flex items-center space-x-2 mb-4">
-                <button id="smb-back-btn" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm text-white transition-colors">
+                <button id="smb-back-btn" class="px-3 py-2 bg-obsidian-700 hover:bg-obsidian-600 rounded-lg text-sm text-white transition-colors">
                   <span class="flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                       <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
@@ -648,8 +658,8 @@
                     Up
                   </span>
                 </button>
-                <span id="smb-current-path" class="text-sm text-gray-300 bg-slate-700 px-3 py-2 rounded-lg flex-1 overflow-x-auto whitespace-nowrap"></span>
-                <button id="smb-refresh-btn" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm text-white transition-colors">
+                <span id="smb-current-path" class="text-sm text-obsidian-200 bg-obsidian-700 px-3 py-2 rounded-lg flex-1 overflow-x-auto whitespace-nowrap"></span>
+                <button id="smb-refresh-btn" class="px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm text-white transition-colors">
                   <span class="flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                       <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
@@ -667,15 +677,15 @@
                   </span>
                 </button>
               </div>
-              <div id="smb-list" class="bg-slate-700 rounded-lg p-3 h-64 overflow-y-auto text-sm border border-slate-600"></div>
+              <div id="smb-list" class="bg-obsidian-700 rounded-lg p-3 h-64 overflow-y-auto text-sm border border-obsidian-500"></div>
             </div>
             
-            <div id="smb-editor-container" class="hidden bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-5 space-y-4">
-              <h3 class="text-sm font-medium text-gray-200 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+            <div id="smb-editor-container" class="hidden bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 p-5 space-y-4">
+              <h3 class="text-sm font-medium text-obsidian-100 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
                 </svg>
-                Editing: <span id="smb-editing-file" class="text-indigo-300"></span>
+                Editing: <span id="smb-editing-file" class="text-purple-300"></span>
               </h3>
               
               <!-- Format warning for YAML files -->
@@ -687,9 +697,9 @@
               </div>
               
               <!-- Find bar for SMB editor -->
-              <div id="smb-find-bar" class="hidden bg-slate-700 p-3 rounded-lg border border-slate-600">
+              <div id="smb-find-bar" class="hidden bg-obsidian-700 p-3 rounded-lg border border-obsidian-500">
                 <div class="flex items-center justify-between mb-2">
-                  <div class="text-sm text-gray-300 font-medium">Find in file</div>
+                  <div class="text-sm text-obsidian-200 font-medium">Find in file</div>
                   <button id="smb-find-close" class="p-1 bg-rose-600 hover:bg-rose-500 rounded-lg text-white transition-colors flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -697,16 +707,16 @@
                   </button>
                 </div>
                 <div class="flex items-center space-x-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-obsidian-200" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
                   </svg>
-                  <input id="smb-find-input" type="text" placeholder="Find..." class="flex-1 px-3 py-1 bg-slate-800 text-white rounded-lg border border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none" />
-                  <button id="smb-find-prev" class="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded-lg text-white transition-colors">Prev</button>
-                  <button id="smb-find-next" class="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded-lg text-white transition-colors">Next</button>
+                  <input id="smb-find-input" type="text" placeholder="Find..." class="flex-1 px-3 py-1 bg-obsidian-800 text-white rounded-lg border border-obsidian-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none" />
+                  <button id="smb-find-prev" class="px-2 py-1 bg-obsidian-600 hover:bg-obsidian-500 rounded-lg text-white transition-colors">Prev</button>
+                  <button id="smb-find-next" class="px-2 py-1 bg-obsidian-600 hover:bg-obsidian-500 rounded-lg text-white transition-colors">Next</button>
                 </div>
               </div>
               
-              <textarea id="smb-editor" class="w-full h-64 bg-slate-950 text-gray-100 p-3 rounded-lg font-mono text-sm border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none"></textarea>
+              <textarea id="smb-editor" class="w-full h-64 bg-obsidian-950 text-obsidian-100 p-3 rounded-lg font-mono text-sm border border-obsidian-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none"></textarea>
               
               <div class="flex space-x-2">
                 <button id="smb-save-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm text-white transition-colors btn-action">
@@ -732,75 +742,75 @@
         
         <!-- MySQL Database Management -->
         <div id="mysql-section" class="hidden space-y-6">
-          <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-5">
+          <div class="bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 p-5">
             <!-- Saved MySQL Connections -->
             <div class="space-y-3">
-              <label class="block text-sm font-medium text-gray-300">Saved Connections</label>
-              <select id="mysql-list" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white"></select>
+              <label class="block text-sm font-medium text-obsidian-200">Saved Connections</label>
+              <select id="mysql-list" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white"></select>
               <div class="flex space-x-2 mt-2">
-                <button id="mysql-add-btn" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold text-white transition-colors btn-action">Add</button>
+                <button id="mysql-add-btn" class="flex-1 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold text-white transition-colors btn-action">Add</button>
                 <button id="mysql-edit-btn" class="flex-1 py-2 bg-amber-500 hover:bg-amber-400 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 btn-action">Edit</button>
                 <button id="mysql-remove-btn" class="flex-1 py-2 bg-rose-600 hover:bg-rose-500 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 btn-action">Remove</button>
               </div>
             </div>
             
             <!-- Collapsible Connection Settings -->
-            <div id="mysql-settings-header" class="flex items-center justify-between cursor-pointer bg-slate-700 p-4 hover:bg-slate-600 rounded-lg transition-colors mt-5">
+            <div id="mysql-settings-header" class="flex items-center justify-between cursor-pointer bg-obsidian-700 p-4 hover:bg-obsidian-600 rounded-lg transition-colors mt-5">
               <h2 class="text-lg font-medium text-white flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" />
                   <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" />
                   <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z" />
                 </svg>
                 Database Connection
               </h2>
-              <span id="mysql-toggle-icon" class="transform transition-transform text-indigo-400">▼</span>
+              <span id="mysql-toggle-icon" class="transform transition-transform text-purple-400">▼</span>
             </div>
             
             <div id="mysql-settings-panel" class="space-y-4 mt-4">
               <!-- Connection Details -->
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="sm:col-span-2">
-                  <label for="mysql-host" class="block text-sm font-medium mb-1 text-gray-300">Host</label>
-                  <input id="mysql-host" type="text" value="localhost" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
+                  <label for="mysql-host" class="block text-sm font-medium mb-1 text-obsidian-200">Host</label>
+                  <input id="mysql-host" type="text" value="localhost" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
                 </div>
                 <div>
-                  <label for="mysql-port" class="block text-sm font-medium mb-1 text-gray-300">Port</label>
-                  <input id="mysql-port" type="number" value="3306" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
+                  <label for="mysql-port" class="block text-sm font-medium mb-1 text-obsidian-200">Port</label>
+                  <input id="mysql-port" type="number" value="3306" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
                 </div>
                 <div>
-                  <label for="mysql-user" class="block text-sm font-medium mb-1 text-gray-300">User</label>
-                  <input id="mysql-user" type="text" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
+                  <label for="mysql-user" class="block text-sm font-medium mb-1 text-obsidian-200">User</label>
+                  <input id="mysql-user" type="text" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
                 </div>
                 <div>
-                  <label for="mysql-password" class="block text-sm font-medium mb-1 text-gray-300">Password</label>
-                  <input id="mysql-password" type="password" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
+                  <label for="mysql-password" class="block text-sm font-medium mb-1 text-obsidian-200">Password</label>
+                  <input id="mysql-password" type="password" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
                 </div>
                 <div>
-                  <label for="mysql-database" class="block text-sm font-medium mb-1 text-gray-300">Database</label>
-                  <input id="mysql-database" type="text" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
+                  <label for="mysql-database" class="block text-sm font-medium mb-1 text-obsidian-200">Database</label>
+                  <input id="mysql-database" type="text" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
                 </div>
                 
                 <!-- SSL Toggle -->
                 <div class="flex items-center space-x-2 col-span-full">
-                  <input id="mysql-ssl" type="checkbox" class="h-5 w-5 text-indigo-500 rounded bg-slate-700 border-slate-600" />
-                  <label for="mysql-ssl" class="text-sm text-gray-300">Use SSL (verify server certificate)</label>
+                  <input id="mysql-ssl" type="checkbox" class="h-5 w-5 text-purple-500 rounded bg-obsidian-700 border-obsidian-500" />
+                  <label for="mysql-ssl" class="text-sm text-obsidian-200">Use SSL (verify server certificate)</label>
                 </div>
                 
                 <!-- SSL Options (shown when SSL enabled) -->
                 <div id="mysql-ssl-options" class="hidden ml-6 space-y-2 col-span-full">
                   <div class="flex items-center space-x-2">
-                    <input id="mysql-custom-ca" type="checkbox" class="h-5 w-5 text-indigo-500 rounded bg-slate-700 border-slate-600" />
-                    <label for="mysql-custom-ca" class="text-sm text-gray-300">Use custom Certificate Authority root CA</label>
+                    <input id="mysql-custom-ca" type="checkbox" class="h-5 w-5 text-purple-500 rounded bg-obsidian-700 border-obsidian-500" />
+                    <label for="mysql-custom-ca" class="text-sm text-obsidian-200">Use custom Certificate Authority root CA</label>
                   </div>
                   <div id="mysql-ca-settings" class="hidden ml-6 mt-2 space-y-2">
                     <div>
-                      <label for="mysql-ca-path" class="block text-sm font-medium mb-1 text-gray-300">Root CA / Bundle File</label>
+                      <label for="mysql-ca-path" class="block text-sm font-medium mb-1 text-obsidian-200">Root CA / Bundle File</label>
                       <div class="flex items-center space-x-2">
-                        <input id="mysql-ca-path" type="text" readonly placeholder="Click to choose certificate file" class="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white cursor-pointer" />
-                        <button id="mysql-ca-browse-btn" class="px-3 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm text-white transition-colors">Browse</button>
+                        <input id="mysql-ca-path" type="text" readonly placeholder="Click to choose certificate file" class="flex-1 px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white cursor-pointer" />
+                        <button id="mysql-ca-browse-btn" class="px-3 py-2 bg-obsidian-600 hover:bg-obsidian-500 rounded-lg text-sm text-white transition-colors">Browse</button>
                       </div>
-                      <p class="text-xs text-gray-400 mt-1">Select a PEM/DER/.pfx file to verify the MySQL server certificate.</p>
+                      <p class="text-xs text-obsidian-200 mt-1">Select a PEM/DER/.pfx file to verify the MySQL server certificate.</p>
                     </div>
                   </div>
                 </div>
@@ -816,15 +826,15 @@
                   <div id="mysql-status-indicator" class="flex-shrink-0 h-2 w-2 rounded-full bg-gray-400 mr-2"></div>
                   <span class="tooltip-text">● Green: Connected ● Red: Error ● Gray: Not connected</span>
                 </div>
-                <span id="mysql-status" class="text-sm italic text-gray-300">Not connected</span>
+                <span id="mysql-status" class="text-sm italic text-obsidian-200">Not connected</span>
               </div>
             </div>
           </div>
           
           <!-- SQL Query Section -->
-          <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-5 space-y-4">
-            <label for="mysql-query" class="block text-sm font-medium text-gray-300">SQL Query</label>
-            <textarea id="mysql-query" class="w-full h-32 p-3 bg-slate-700 text-white rounded-lg font-mono text-sm border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none" placeholder="SELECT * FROM ..."></textarea>
+          <div class="bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 p-5 space-y-4">
+            <label for="mysql-query" class="block text-sm font-medium text-obsidian-200">SQL Query</label>
+            <textarea id="mysql-query" class="w-full h-32 p-3 bg-obsidian-700 text-white rounded-lg font-mono text-sm border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none" placeholder="SELECT * FROM ..."></textarea>
             <button id="mysql-run-btn" disabled class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold disabled:opacity-50 text-white transition-colors shadow-lg btn-action">
               <span class="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -834,84 +844,84 @@
               </span>
             </button>
             <div>
-              <h2 class="text-lg font-medium mb-2 text-gray-200">Results</h2>
-              <pre id="mysql-results" class="w-full h-64 p-3 bg-slate-950 rounded-lg overflow-y-auto text-green-400 font-mono text-sm border border-slate-800"></pre>
+              <h2 class="text-lg font-medium mb-2 text-obsidian-100">Results</h2>
+              <pre id="mysql-results" class="w-full h-64 p-3 bg-obsidian-950 rounded-lg overflow-y-auto text-green-400 font-mono text-sm border border-obsidian-700"></pre>
             </div>
           </div>
         </div> <!-- end mysql-section -->
         
         <div id="settings-section" class="hidden space-y-6">
-          <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-5">
-            <div id="settings-header" class="flex items-center justify-between bg-slate-700 p-4 rounded-lg mb-5">
+          <div class="bg-obsidian-800 rounded-xl shadow-lg border border-obsidian-600 p-5">
+            <div id="settings-header" class="flex items-center justify-between bg-obsidian-700 p-4 rounded-lg mb-5">
               <h2 class="text-lg font-medium text-white flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
                 </svg>
                 Settings
               </h2>
             </div>
             
-            <div class="bg-slate-700 rounded-lg p-5 border border-slate-600">
-              <span class="block text-sm font-medium mb-3 text-gray-200">Encryption Mode</span>
+            <div class="bg-obsidian-700 rounded-lg p-5 border border-obsidian-500">
+              <span class="block text-sm font-medium mb-3 text-obsidian-100">Encryption Mode</span>
               <div class="space-y-3">
                 <label class="flex items-center space-x-2">
-                  <input type="radio" name="enc-mode" id="enc-default" value="default" class="h-5 w-5 text-indigo-500">
-                  <span class="text-gray-300">Default</span>
+                  <input type="radio" name="enc-mode" id="enc-default" value="default" class="h-5 w-5 text-purple-500">
+                  <span class="text-obsidian-200">Default</span>
                 </label>
                 <label class="flex items-center space-x-2">
-                  <input type="radio" name="enc-mode" id="enc-custom" value="custom" class="h-5 w-5 text-indigo-500">
-                  <span class="text-gray-300">Custom Password</span>
+                  <input type="radio" name="enc-mode" id="enc-custom" value="custom" class="h-5 w-5 text-purple-500">
+                  <span class="text-obsidian-200">Custom Password</span>
                 </label>
               </div>
               
               <div id="custom-password-container" class="hidden mt-4 space-y-2">
-                <label for="custom-password" class="block text-sm font-medium text-gray-300">Password</label>
-                <input id="custom-password" type="password" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white">
+                <label for="custom-password" class="block text-sm font-medium text-obsidian-200">Password</label>
+                <input id="custom-password" type="password" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white">
               </div>
             </div>
             <!-- Relay Agent Settings -->
-            <div class="mt-6 bg-slate-700 rounded-lg p-5 border border-slate-600">
-              <span class="block text-sm font-medium mb-3 text-gray-200">Relay Agent</span>
+            <div class="mt-6 bg-obsidian-700 rounded-lg p-5 border border-obsidian-500">
+              <span class="block text-sm font-medium mb-3 text-obsidian-100">Relay Agent</span>
               <label class="flex items-center space-x-2">
-                <input type="checkbox" id="agent-enabled" class="h-5 w-5 text-indigo-500">
-                <span class="text-gray-300">Use remote agent</span>
+                <input type="checkbox" id="agent-enabled" class="h-5 w-5 text-purple-500">
+                <span class="text-obsidian-200">Use remote agent</span>
               </label>
               <div id="agent-settings-container" class="mt-4 space-y-4 hidden">
                 <!-- Connection protocol information -->
-                <div class="bg-slate-800 rounded-lg p-3 mb-3 text-sm text-gray-300">
+                <div class="bg-obsidian-800 rounded-lg p-3 mb-3 text-sm text-obsidian-200">
                   <p class="mb-1">Connection will use WebSocket protocol for real-time communication.</p>
                   <p>Secure WebSocket (WSS) will be used when SSL is enabled.</p>
                 </div>
                 <div>
-                  <label for="agent-url" class="block text-sm font-medium text-gray-300">Agent Address (host:port)</label>
-                  <input id="agent-url" type="text" placeholder="agent.local:8080" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
+                  <label for="agent-url" class="block text-sm font-medium text-obsidian-200">Agent Address (host:port)</label>
+                  <input id="agent-url" type="text" placeholder="agent.local:8080" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
                 </div>
                 <label class="flex items-center space-x-2">
-                  <input type="checkbox" id="agent-use-ssl" class="h-5 w-5 text-indigo-500">
-                  <span class="text-gray-300">Use SSL/TLS</span>
+                  <input type="checkbox" id="agent-use-ssl" class="h-5 w-5 text-purple-500">
+                  <span class="text-obsidian-200">Use SSL/TLS</span>
                 </label>
                 <div id="agent-ssl-options" class="pl-5 space-y-4 hidden">
                   <label class="flex items-center space-x-2">
-                    <input type="checkbox" id="agent-custom-ca" class="h-5 w-5 text-indigo-500">
-                    <span class="text-gray-300">Specify Custom Root CA</span>
+                    <input type="checkbox" id="agent-custom-ca" class="h-5 w-5 text-purple-500">
+                    <span class="text-obsidian-200">Specify Custom Root CA</span>
                   </label>
-                  <p class="text-xs text-gray-400 mt-1 ml-7">Required for self-signed or private certificates. Without a custom CA, only certificates from trusted providers (e.g., Let's Encrypt) will be accepted.</p>
+                  <p class="text-xs text-obsidian-200 mt-1 ml-7">Required for self-signed or private certificates. Without a custom CA, only certificates from trusted providers (e.g., Let's Encrypt) will be accepted.</p>
                   <div id="agent-ca-container" class="hidden">
-                    <label for="agent-ca-file" class="block text-sm font-medium text-gray-300">Custom Root CA</label>
+                    <label for="agent-ca-file" class="block text-sm font-medium text-obsidian-200">Custom Root CA</label>
                     <div class="flex space-x-2">
-                      <input id="agent-ca-file" type="text" placeholder="/path/to/ca.pem" class="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" readonly />
-                      <button id="agent-ca-file-btn" class="px-3 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-gray-100 transition-colors">Browse</button>
+                      <input id="agent-ca-file" type="text" placeholder="/path/to/ca.pem" class="flex-1 px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" readonly />
+                      <button id="agent-ca-file-btn" class="px-3 py-2 bg-obsidian-600 hover:bg-obsidian-500 rounded-lg text-obsidian-100 transition-colors">Browse</button>
                     </div>
                   </div>
                 </div>
                 <div>
-                  <label for="agent-api-key" class="block text-sm font-medium text-gray-300">API Key</label>
-                  <input id="agent-api-key" type="text" placeholder="Your API key" class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-30 focus:outline-none text-white" />
+                  <label for="agent-api-key" class="block text-sm font-medium text-obsidian-200">API Key</label>
+                  <input id="agent-api-key" type="text" placeholder="Your API key" class="w-full px-4 py-2 rounded-lg bg-obsidian-700 border border-obsidian-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-opacity-30 focus:outline-none text-white" />
                 </div>
               </div>
             </div>
             
-            <button id="settings-save-btn" class="mt-5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold text-white transition-colors shadow-lg btn-action">
+            <button id="settings-save-btn" class="mt-5 px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold text-white transition-colors shadow-lg btn-action">
               <span class="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />

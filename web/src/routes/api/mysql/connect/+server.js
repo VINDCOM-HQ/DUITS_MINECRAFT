@@ -1,24 +1,18 @@
 import { json } from '@sveltejs/kit';
-import { sendRequest } from '$lib/server/agent.js';
+import { isConfigured, getGamePool } from '$lib/server/services/game-db.js';
 
 /** @type {import('./$types').RequestHandler} */
-export async function POST({ request }) {
+export async function POST() {
 	try {
-		const { host, port, user, password, database, ssl } = await request.json();
-
-		if (!host || !user || !database) {
-			return json({ success: false, error: 'host, user, and database are required' }, { status: 400 });
+		if (!isConfigured()) {
+			return json({ success: false, error: 'Game database not configured — check environment variables' }, { status: 400 });
 		}
 
-		const result = await sendRequest('connect', 'mysql', {
-			host,
-			port: Number(port || 3306),
-			user,
-			password,
-			database,
-			ssl
-		});
-		return json(result);
+		// Verify pool is reachable
+		const pool = getGamePool();
+		const [rows] = await pool.execute('SELECT 1');
+
+		return json({ success: true, connected: true });
 	} catch (err) {
 		return json({ success: false, error: err.message }, { status: 500 });
 	}

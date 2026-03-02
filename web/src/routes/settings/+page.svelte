@@ -1,142 +1,147 @@
 <script>
 	import { getStatus } from '$lib/api.js';
-	import { getAgentOnline } from '$lib/stores/connections.svelte.js';
-	import StatusIndicator from '$lib/components/StatusIndicator.svelte';
-	import { success as toastSuccess, error as toastError } from '$lib/stores/toast.svelte.js';
 
-	let agentStatus = $state(null);
-
-	async function refreshAgent() {
-		try {
-			agentStatus = await getStatus();
-		} catch (err) {
-			agentStatus = null;
-		}
-	}
+	let status = $state(null);
+	let loading = $state(true);
 
 	$effect(() => {
-		refreshAgent();
+		loadStatus();
 	});
 
-	// Saved connection profiles
-	let rconServers = $state(JSON.parse(localStorage.getItem('rcon_servers') || '[]'));
-	let smbConnections = $state(JSON.parse(localStorage.getItem('smb_connections') || '[]'));
-	let mysqlConnections = $state(JSON.parse(localStorage.getItem('mysql_connections') || '[]'));
-
-	function deleteProfile(type, index) {
-		if (!confirm('Delete this profile?')) return;
-		switch (type) {
-			case 'rcon':
-				rconServers = rconServers.filter((_, i) => i !== index);
-				localStorage.setItem('rcon_servers', JSON.stringify(rconServers));
-				break;
-			case 'smb':
-				smbConnections = smbConnections.filter((_, i) => i !== index);
-				localStorage.setItem('smb_connections', JSON.stringify(smbConnections));
-				break;
-			case 'mysql':
-				mysqlConnections = mysqlConnections.filter((_, i) => i !== index);
-				localStorage.setItem('mysql_connections', JSON.stringify(mysqlConnections));
-				break;
+	async function loadStatus() {
+		try {
+			status = await getStatus();
+		} catch {
+			status = null;
+		} finally {
+			loading = false;
 		}
-		toastSuccess('Profile deleted');
 	}
+
+	const config = $derived(status?.config || {});
+	const authMethod = $derived.by(() => {
+		if (config.auth?.oauthEnabled) return 'OAuth / OIDC';
+		if (config.auth?.samlEnabled) return 'SAML';
+		return 'Local';
+	});
 </script>
 
-<div class="max-w-4xl">
-	<h1 class="text-2xl font-bold text-gray-100 mb-6">Settings</h1>
+<div class="w-full">
+	<h1 class="text-2xl font-bold text-obsidian-100 mb-6">Settings</h1>
 
-	<!-- Agent Info -->
-	<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-		<div class="flex items-center justify-between mb-4">
-			<h2 class="text-sm font-medium text-gray-400">Agent Relay</h2>
-			<StatusIndicator status={getAgentOnline() ? 'connected' : 'disconnected'} label={getAgentOnline() ? 'Connected' : 'Disconnected'} />
+	{#if loading}
+		<div class="card text-center py-8">
+			<p class="text-obsidian-300">Loading configuration...</p>
 		</div>
+	{:else if !status}
+		<div class="card text-center py-8">
+			<p class="text-obsidian-300">Unable to load system status</p>
+		</div>
+	{:else}
+		<p class="text-xs text-obsidian-400 mb-4">Resolved configuration from container environment variables. Change these in your Docker Compose or environment file.</p>
 
-		{#if agentStatus}
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+		<!-- RCON -->
+		<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5 mb-4">
+			<h2 class="text-sm font-medium text-obsidian-200 mb-3">RCON</h2>
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
 				<div>
-					<span class="text-gray-500">Version</span>
-					<p class="text-gray-200">{agentStatus.version || '?'}</p>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_RCON_HOST</span>
+					<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.rcon?.host || 'localhost'}</p>
 				</div>
 				<div>
-					<span class="text-gray-500">Platform</span>
-					<p class="text-gray-200">{agentStatus.platform || '?'}</p>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_RCON_PORT</span>
+					<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.rcon?.port || 25575}</p>
 				</div>
 				<div>
-					<span class="text-gray-500">Node.js</span>
-					<p class="text-gray-200">{agentStatus.nodejs || '?'}</p>
-				</div>
-				<div>
-					<span class="text-gray-500">Architecture</span>
-					<p class="text-gray-200">{agentStatus.arch || '?'}</p>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_RCON_PASSWORD</span>
+					<p class="font-mono text-xs mt-0.5 {config.rcon?.passwordSet ? 'text-emerald-400' : 'text-rose-400'}">
+						{config.rcon?.passwordSet ? '********' : 'Not set'}
+					</p>
 				</div>
 			</div>
-		{:else}
-			<p class="text-gray-500 text-sm italic">Agent not reachable</p>
-		{/if}
-	</div>
-
-	<!-- Saved Profiles -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-		<!-- RCON Servers -->
-		<div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-			<h2 class="text-sm font-medium text-gray-400 mb-3">RCON Servers ({rconServers.length})</h2>
-			{#if rconServers.length === 0}
-				<p class="text-gray-500 text-xs italic">No saved servers</p>
-			{:else}
-				<div class="space-y-2">
-					{#each rconServers as server, i}
-						<div class="flex items-center justify-between bg-slate-800 rounded-lg px-3 py-2">
-							<div>
-								<p class="text-sm text-gray-200">{server.name}</p>
-								<p class="text-xs text-gray-500">{server.host}:{server.port}</p>
-							</div>
-							<button onclick={() => deleteProfile('rcon', i)} class="text-xs text-rose-400 hover:text-rose-300">Delete</button>
-						</div>
-					{/each}
-				</div>
-			{/if}
 		</div>
 
-		<!-- SMB Connections -->
-		<div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-			<h2 class="text-sm font-medium text-gray-400 mb-3">SMB Connections ({smbConnections.length})</h2>
-			{#if smbConnections.length === 0}
-				<p class="text-gray-500 text-xs italic">No saved connections</p>
-			{:else}
-				<div class="space-y-2">
-					{#each smbConnections as conn, i}
-						<div class="flex items-center justify-between bg-slate-800 rounded-lg px-3 py-2">
-							<div>
-								<p class="text-sm text-gray-200">{conn.name || conn.host}</p>
-								<p class="text-xs text-gray-500">{conn.host}/{conn.share}</p>
-							</div>
-							<button onclick={() => deleteProfile('smb', i)} class="text-xs text-rose-400 hover:text-rose-300">Delete</button>
-						</div>
-					{/each}
+		<!-- MySQL -->
+		<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5 mb-4">
+			<h2 class="text-sm font-medium text-obsidian-200 mb-3">MySQL</h2>
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+				<div>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_DB_HOST</span>
+					<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.mysql?.host || 'localhost'}</p>
 				</div>
-			{/if}
+				<div>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_DB_PORT</span>
+					<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.mysql?.port || 3306}</p>
+				</div>
+				<div>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_DB_USER</span>
+					<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.mysql?.user || 'netherdeck'}</p>
+				</div>
+				<div>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_DB_PASSWORD</span>
+					<p class="font-mono text-xs mt-0.5 {config.mysql?.passwordSet ? 'text-emerald-400' : 'text-rose-400'}">
+						{config.mysql?.passwordSet ? '********' : 'Not set'}
+					</p>
+				</div>
+				<div>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_DB_NAME</span>
+					<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.mysql?.portalDb || 'netherdeck'}</p>
+				</div>
+				<div>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_GAME_DB_NAME</span>
+					<p class="font-mono text-xs mt-0.5 {config.mysql?.gameDbConfigured ? 'text-obsidian-100' : 'text-obsidian-400'}">
+						{config.mysql?.gameDbConfigured ? config.mysql?.gameDb : 'Not set'}
+					</p>
+				</div>
+			</div>
 		</div>
 
-		<!-- MySQL Connections -->
-		<div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-			<h2 class="text-sm font-medium text-gray-400 mb-3">MySQL Connections ({mysqlConnections.length})</h2>
-			{#if mysqlConnections.length === 0}
-				<p class="text-gray-500 text-xs italic">No saved connections</p>
-			{:else}
-				<div class="space-y-2">
-					{#each mysqlConnections as conn, i}
-						<div class="flex items-center justify-between bg-slate-800 rounded-lg px-3 py-2">
-							<div>
-								<p class="text-sm text-gray-200">{conn.name || conn.database}</p>
-								<p class="text-xs text-gray-500">{conn.host}:{conn.port}/{conn.database}</p>
-							</div>
-							<button onclick={() => deleteProfile('mysql', i)} class="text-xs text-rose-400 hover:text-rose-300">Delete</button>
-						</div>
-					{/each}
+		<!-- Query & Filesystem -->
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+			<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5">
+				<h2 class="text-sm font-medium text-obsidian-200 mb-3">Query Protocol</h2>
+				<div class="grid grid-cols-2 gap-3 text-sm">
+					<div>
+						<span class="text-obsidian-400 text-xs">WEB_PORTAL_RCON_HOST</span>
+						<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.query?.host || 'localhost'}</p>
+					</div>
+					<div>
+						<span class="text-obsidian-400 text-xs">WEB_PORTAL_QUERY_PORT</span>
+						<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.query?.port || 25565}</p>
+					</div>
 				</div>
-			{/if}
+			</div>
+
+			<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5">
+				<h2 class="text-sm font-medium text-obsidian-200 mb-3">Filesystem</h2>
+				<div class="text-sm">
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_MC_DIR</span>
+					<p class="text-obsidian-100 font-mono text-xs mt-0.5">{config.filesystem?.mcDir || '/minecraft'}</p>
+				</div>
+			</div>
 		</div>
-	</div>
+
+		<!-- Authentication -->
+		<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5">
+			<h2 class="text-sm font-medium text-obsidian-200 mb-3">Authentication</h2>
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+				<div>
+					<span class="text-obsidian-400 text-xs">Auth Method</span>
+					<p class="text-obsidian-100 text-xs mt-0.5">{authMethod}</p>
+				</div>
+				<div>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_ADMIN_USER</span>
+					<p class="font-mono text-xs mt-0.5 {config.auth?.adminUserSet ? 'text-emerald-400' : 'text-obsidian-400'}">
+						{config.auth?.adminUserSet ? 'Set' : 'Not set (auto-generated)'}
+					</p>
+				</div>
+				<div>
+					<span class="text-obsidian-400 text-xs">WEB_PORTAL_SESSION_SECRET</span>
+					<p class="font-mono text-xs mt-0.5 {config.auth?.sessionSecretSet ? 'text-emerald-400' : 'text-amber-400'}">
+						{config.auth?.sessionSecretSet ? 'Set' : 'Auto-generated'}
+					</p>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>

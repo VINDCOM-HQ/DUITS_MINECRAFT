@@ -26,14 +26,22 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
 
-      - name: Install dependencies
+      - name: Install desktop dependencies
+        working-directory: desktop
         run: npm ci
 
+      - name: Install agent dependencies
+        working-directory: agent
+        run: npm ci --omit=dev
+
       - name: Build CSS
+        working-directory: desktop
         run: npm run build:css
 
       - name: Build Electron app
+        working-directory: desktop
         run: npm run dist
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -42,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-msi
-          path: dist/*.msi
+          path: desktop/dist/*.msi
           if-no-files-found: error
 
   release:

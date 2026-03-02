@@ -44,7 +44,7 @@ function setupSocketServer(server) {
     
     // Send a welcome message to confirm connection
     socket.emit('welcome', { 
-      message: 'Connected to Minecraft RCON Agent',
+      message: 'Connected to NetherDeck Agent',
       socketId: socket.id,
       time: new Date().toISOString()
     });

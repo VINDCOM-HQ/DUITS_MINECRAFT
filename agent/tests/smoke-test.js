@@ -1,5 +1,5 @@
 /**
- * Smoke test for DUITS Minecraft RMM Agent
+ * Smoke test for VINDCOM NetherDeck Agent
  * 
  * This test starts the agent and performs a basic health check
  * to ensure it's working correctly.

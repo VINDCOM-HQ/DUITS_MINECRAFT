@@ -1,0 +1,27 @@
+package io.github.netherdeck.common.mixin.core.world.level.block.entity;
+
+import io.github.netherdeck.common.bridge.core.inventory.IInventoryBridge;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
+import org.bukkit.Location;
+import org.bukkit.craftbukkit.v.block.CraftBlock;
+import org.spongepowered.asm.mixin.Mixin;
+
+@Mixin(BaseContainerBlockEntity.class)
+public abstract class LockableBlockEntityMixin extends BlockEntityMixin implements IInventoryBridge, Container {
+
+    @Override
+    public Location getLocation() {
+        return CraftBlock.at(this.level, this.worldPosition).getLocation();
+    }
+
+    @Override
+    public RecipeHolder<?> getCurrentRecipe() {
+        return null;
+    }
+
+    @Override
+    public void setCurrentRecipe(RecipeHolder<?> recipe) {
+    }
+}

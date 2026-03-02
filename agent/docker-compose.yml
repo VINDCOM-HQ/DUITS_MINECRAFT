@@ -5,8 +5,8 @@ services:
     build:
       context: ..
       dockerfile: agent/Dockerfile
-    image: duits-agent:${VERSION:-latest}
-    container_name: duits-mc-agent
+    image: vindcom-netherdeck-agent:${VERSION:-latest}
+    container_name: netherdeck-agent
     restart: unless-stopped
     ports:
       - "${AGENT_PORT:-3500}:${AGENT_PORT:-3500}"

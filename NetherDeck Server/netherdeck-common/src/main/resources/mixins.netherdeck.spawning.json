@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "io.github.netherdeck.common.mixin.netherdeck.spawning",
+  "target": "@env(DEFAULT)",
+  "plugin": "io.github.netherdeck.common.mod.NetherDeckMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "NaturalSpawnerMixin_SpawnOptimize",
+    "ServerChunkCacheMixin_SpawnOptimize"
+  ]
+}

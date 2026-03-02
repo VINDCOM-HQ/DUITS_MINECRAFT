@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "io.github.netherdeck.common.mixin.netherdeck.collections",
+  "target": "@env(DEFAULT)",
+  "plugin": "io.github.netherdeck.common.mod.NetherDeckMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ServerLevelMixin_FastutilCollections",
+    "EntitySectionMixin_FastutilCollections",
+    "MappedRegistryMixin_FastutilCollections"
+  ]
+}

@@ -5,7 +5,7 @@ const app = require('../index');
 const TEST_API_KEY = 'test-api-key';
 process.env.AGENT_API_KEY = TEST_API_KEY;
 
-describe('DUITS Agent API', () => {
+describe('NetherDeck Agent API', () => {
   describe('Authentication', () => {
     test('should reject requests without API key', async () => {
       const res = await request(app).get('/health');

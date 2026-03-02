@@ -1,17 +1,30 @@
 import { json } from '@sveltejs/kit';
-import { sendRequest } from '$lib/server/agent.js';
+import { gameQuery, isConfigured } from '$lib/server/services/game-db.js';
 
 /** @type {import('./$types').RequestHandler} */
-export async function POST({ request }) {
-	try {
-		const { clientId, sql, params } = await request.json();
+export async function POST({ request, locals }) {
+	if (locals.user?.role !== 'admin') {
+		return json({ success: false, error: 'Forbidden' }, { status: 403 });
+	}
 
-		if (!clientId || !sql) {
-			return json({ success: false, error: 'clientId and sql are required' }, { status: 400 });
+	try {
+		if (!isConfigured()) {
+			return json({ success: false, error: 'Game database not configured' }, { status: 400 });
 		}
 
-		const result = await sendRequest('command', 'mysql', { clientId, sql, params });
-		return json(result);
+		const { sql, params } = await request.json();
+
+		if (!sql || typeof sql !== 'string') {
+			return json({ success: false, error: 'sql is required' }, { status: 400 });
+		}
+
+		const [rows, fields] = await gameQuery(sql, params || []);
+
+		return json({
+			success: true,
+			rows,
+			fields: fields?.map((f) => ({ name: f.name, type: f.type }))
+		});
 	} catch (err) {
 		return json({ success: false, error: err.message }, { status: 500 });
 	}

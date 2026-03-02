@@ -1,73 +1,103 @@
 <script>
-	import { rconConnect, rconCommand, rconDisconnect } from '$lib/api.js';
-	import { getRcon, setRcon } from '$lib/stores/connections.svelte.js';
-	import { error as toastError, success as toastSuccess } from '$lib/stores/toast.svelte.js';
+	import { rconCommand, rconStatus, rconConnect } from '$lib/api.js';
+	import { setRcon } from '$lib/stores/connections.svelte.js';
+	import { connectLogStream, getStreamStatus } from '$lib/stores/log-stream.svelte.js';
+	import { parseLogLine } from '$lib/utils/parse-log-line.js';
+	import { error as toastError } from '$lib/stores/toast.svelte.js';
 	import StatusIndicator from '$lib/components/StatusIndicator.svelte';
 
-	let host = $state('localhost');
-	let port = $state(25575);
-	let password = $state('');
 	let command = $state('');
 	let output = $state([]);
 	let commandHistory = $state([]);
 	let historyIndex = $state(-1);
-	let connecting = $state(false);
 	let outputEl = $state(null);
+	let connected = $state(false);
+	let connecting = $state(true);
+	let autoScroll = $state(true);
 
-	const savedServers = $state(JSON.parse(localStorage.getItem('rcon_servers') || '[]'));
-	let selectedServer = $state('');
+	const MAX_OUTPUT_LINES = 5000;
 
-	function loadServer(name) {
-		const server = savedServers.find((s) => s.name === name);
-		if (server) {
-			host = server.host;
-			port = server.port;
-			password = server.password || '';
+	// Auto-connect RCON on mount
+	$effect(() => {
+		checkAndConnect();
+	});
+
+	// Connect log stream on mount
+	$effect(() => {
+		const cleanup = connectLogStream(
+			(lines, isInitial) => {
+				const parsed = lines.map((raw) => {
+					const info = parseLogLine(raw);
+					return {
+						text: info.text,
+						type: info.type,
+						time: info.time || new Date().toLocaleTimeString()
+					};
+				});
+
+				if (isInitial) {
+					// Prepend history before any existing RCON output
+					output = [...parsed, ...output];
+				} else {
+					output = [...output, ...parsed];
+				}
+
+				// Cap output to prevent memory issues
+				if (output.length > MAX_OUTPUT_LINES) {
+					output = output.slice(output.length - MAX_OUTPUT_LINES);
+				}
+
+				requestAnimationFrame(scrollToBottom);
+			},
+			(errorMsg) => {
+				appendOutput(`[Log stream: ${errorMsg}]`, 'info');
+			}
+		);
+
+		return () => cleanup();
+	});
+
+	async function checkAndConnect() {
+		try {
+			const result = await rconStatus();
+			connected = result.connected;
+
+			if (!connected) {
+				await rconConnect();
+				connected = true;
+			}
+
+			if (connected) {
+				setRcon({ connected: true, host: result.host || '', port: result.port || 25575 });
+				appendOutput('[RCON connected]', 'info');
+			}
+		} catch {
+			connected = false;
+			appendOutput('[RCON unavailable — server may not be running]', 'error');
+		} finally {
+			connecting = false;
 		}
 	}
 
-	function saveServer() {
-		const name = prompt('Server name:');
-		if (!name) return;
-		const existing = savedServers.findIndex((s) => s.name === name);
-		const entry = { name, host, port, password };
-		if (existing >= 0) {
-			savedServers[existing] = entry;
-		} else {
-			savedServers.push(entry);
-		}
-		localStorage.setItem('rcon_servers', JSON.stringify(savedServers));
-		toastSuccess('Server saved');
-	}
-
-	async function connect() {
+	async function reconnect() {
 		connecting = true;
 		try {
-			const result = await rconConnect(host, port, password);
-			setRcon({ clientId: result.clientId, connected: true, host, port });
-			appendOutput('[Connected to server]', 'info');
-			toastSuccess('RCON connected');
+			await rconConnect();
+			connected = true;
+			setRcon({ connected: true });
+			appendOutput('[RCON reconnected]', 'info');
 		} catch (err) {
-			appendOutput(`[Connection failed: ${err.message}]`, 'error');
+			connected = false;
+			appendOutput(`[Reconnect failed: ${err.message}]`, 'error');
 			toastError(err.message);
 		} finally {
 			connecting = false;
 		}
 	}
 
-	async function disconnect() {
-		try {
-			await rconDisconnect(getRcon().clientId);
-		} catch (_) {
-			// ignore
-		}
-		setRcon({ clientId: null, connected: false, host: '', port: 25575 });
-		appendOutput('[Disconnected]', 'info');
-	}
-
 	async function sendCommand() {
 		const cmd = command.trim();
-		if (!cmd || !getRcon().clientId) return;
+		if (!cmd) return;
 
 		appendOutput(`> ${cmd}`, 'command');
 		commandHistory = [...commandHistory, cmd];
@@ -75,21 +105,40 @@
 		command = '';
 
 		try {
-			const result = await rconCommand(getRcon().clientId, cmd);
+			const result = await rconCommand(cmd);
+			connected = true;
 			const response = result.response || result.data || '';
 			if (response) {
 				appendOutput(response, 'response');
 			}
 		} catch (err) {
 			appendOutput(`[Error: ${err.message}]`, 'error');
+			if (err.message.includes('not connected') || err.message.includes('ECONNREFUSED')) {
+				connected = false;
+			}
 		}
 	}
 
 	function appendOutput(text, type = 'response') {
 		output = [...output, { text, type, time: new Date().toLocaleTimeString() }];
-		requestAnimationFrame(() => {
-			if (outputEl) outputEl.scrollTop = outputEl.scrollHeight;
-		});
+
+		if (output.length > MAX_OUTPUT_LINES) {
+			output = output.slice(output.length - MAX_OUTPUT_LINES);
+		}
+
+		requestAnimationFrame(scrollToBottom);
+	}
+
+	function scrollToBottom() {
+		if (autoScroll && outputEl) {
+			outputEl.scrollTop = outputEl.scrollHeight;
+		}
+	}
+
+	function handleScroll() {
+		if (!outputEl) return;
+		const { scrollTop, scrollHeight, clientHeight } = outputEl;
+		autoScroll = scrollHeight - scrollTop - clientHeight < 50;
 	}
 
 	function handleKeydown(e) {
@@ -111,119 +160,99 @@
 		}
 	}
 
+	function clearOutput() {
+		output = [];
+	}
+
+	const logStreamStatus = $derived(getStreamStatus());
+
 	const outputColors = {
-		command: 'text-indigo-400',
+		command: 'text-purple-400',
 		response: 'text-emerald-400',
 		error: 'text-rose-400',
-		info: 'text-gray-400'
+		info: 'text-obsidian-200',
+		log: 'text-obsidian-300',
+		'log-warn': 'text-amber-400',
+		'log-error': 'text-rose-400'
 	};
 </script>
 
-<div class="max-w-4xl">
-	<h1 class="text-2xl font-bold text-gray-100 mb-6">RCON Console</h1>
-
-	<!-- Connection Form -->
-	<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-		<div class="flex items-center justify-between mb-4">
-			<h2 class="text-sm font-medium text-gray-400">Connection</h2>
-			<StatusIndicator status={getRcon().connected ? 'connected' : 'disconnected'} label={getRcon().connected ? 'Connected' : 'Disconnected'} />
-		</div>
-
-		{#if savedServers.length > 0}
-			<div class="mb-3">
-				<select
-					bind:value={selectedServer}
-					onchange={() => loadServer(selectedServer)}
-					class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm"
-				>
-					<option value="">-- Saved Servers --</option>
-					{#each savedServers as server}
-						<option value={server.name}>{server.name}</option>
-					{/each}
-				</select>
-			</div>
-		{/if}
-
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-			<input
-				type="text"
-				bind:value={host}
-				placeholder="Host"
-				disabled={getRcon().connected}
-				class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm placeholder-gray-500 disabled:opacity-50"
-			/>
-			<input
-				type="number"
-				bind:value={port}
-				placeholder="Port"
-				disabled={getRcon().connected}
-				class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm placeholder-gray-500 disabled:opacity-50"
-			/>
-			<input
-				type="password"
-				bind:value={password}
-				placeholder="Password"
-				disabled={getRcon().connected}
-				class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm placeholder-gray-500 disabled:opacity-50"
-			/>
-		</div>
-
-		<div class="flex gap-2">
-			{#if getRcon().connected}
+<div class="w-full">
+	<div class="flex items-center justify-between mb-6">
+		<h1 class="text-2xl font-bold text-obsidian-100">Server Console</h1>
+		<div class="flex items-center gap-3">
+			{#if !connected && !connecting}
 				<button
-					onclick={disconnect}
-					class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm rounded-lg transition-colors"
+					onclick={reconnect}
+					class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded-lg transition-colors"
 				>
-					Disconnect
-				</button>
-			{:else}
-				<button
-					onclick={connect}
-					disabled={connecting || !host || !password}
-					class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-gray-500 text-white text-sm rounded-lg transition-colors"
-				>
-					{connecting ? 'Connecting...' : 'Connect'}
+					Reconnect
 				</button>
 			{/if}
-			<button
-				onclick={saveServer}
-				class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 text-sm rounded-lg transition-colors"
-			>
-				Save Server
-			</button>
+			<StatusIndicator
+				status={logStreamStatus === 'connected' ? 'connected' : logStreamStatus === 'connecting' ? 'connecting' : 'disconnected'}
+				label={logStreamStatus === 'connected' ? 'Log stream' : logStreamStatus === 'connecting' ? 'Connecting...' : 'Log offline'}
+			/>
+			<StatusIndicator
+				status={connecting ? 'connecting' : connected ? 'connected' : 'disconnected'}
+				label={connecting ? 'RCON...' : connected ? 'RCON' : 'RCON off'}
+			/>
 		</div>
 	</div>
 
 	<!-- Console Output -->
-	<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+	<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl overflow-hidden">
+		<div class="flex items-center justify-between px-4 py-2 border-b border-obsidian-700 bg-obsidian-800/50">
+			<div class="flex items-center gap-3">
+				<span class="text-xs text-obsidian-300 font-mono">Server Console</span>
+				{#if !autoScroll}
+					<button
+						onclick={() => { autoScroll = true; scrollToBottom(); }}
+						class="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+					>
+						↓ Scroll to bottom
+					</button>
+				{/if}
+			</div>
+			<button
+				onclick={clearOutput}
+				class="text-xs text-obsidian-400 hover:text-obsidian-200 transition-colors"
+			>
+				Clear
+			</button>
+		</div>
+
 		<div
 			bind:this={outputEl}
-			class="h-96 overflow-y-auto p-4 terminal-output bg-slate-950"
+			onscroll={handleScroll}
+			class="h-[calc(100vh-16rem)] min-h-80 overflow-y-auto p-4 terminal-output bg-obsidian-950"
 		>
-			{#if output.length === 0}
-				<div class="text-gray-600 italic">Console output will appear here...</div>
+			{#if connecting && output.length === 0}
+				<div class="text-obsidian-400 italic">Connecting...</div>
+			{:else if output.length === 0}
+				<div class="text-obsidian-400 italic">Waiting for log data...</div>
 			{/if}
 			{#each output as line}
-				<div class="{outputColors[line.type] || 'text-gray-300'}">
-					<span class="text-gray-600 text-xs mr-2">[{line.time}]</span>{line.text}
+				<div class="font-mono text-sm leading-relaxed {outputColors[line.type] || 'text-obsidian-200'}">
+					<span class="text-obsidian-500 text-xs mr-2 select-none">[{line.time}]</span>{line.text}
 				</div>
 			{/each}
 		</div>
 
-		<div class="border-t border-slate-800 p-3 flex gap-2">
-			<span class="text-indigo-400 font-mono self-center">&gt;</span>
+		<div class="border-t border-obsidian-700 p-3 flex gap-2">
+			<span class="text-purple-400 font-mono self-center">&gt;</span>
 			<input
 				type="text"
 				bind:value={command}
 				onkeydown={handleKeydown}
-				placeholder={getRcon().connected ? 'Enter command...' : 'Connect to server first'}
-				disabled={!getRcon().connected}
-				class="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm font-mono placeholder-gray-500 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+				placeholder={connected ? 'Enter RCON command...' : 'Waiting for RCON connection...'}
+				disabled={!connected}
+				class="flex-1 px-3 py-2 bg-obsidian-800 border border-obsidian-600 rounded-lg text-obsidian-100 text-sm font-mono placeholder-obsidian-300 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-purple-500"
 			/>
 			<button
 				onclick={sendCommand}
-				disabled={!getRcon().connected || !command.trim()}
-				class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-gray-500 text-white text-sm rounded-lg transition-colors"
+				disabled={!connected || !command.trim()}
+				class="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-sm rounded-lg transition-colors"
 			>
 				Send
 			</button>

@@ -1,17 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { sendRequest } from '$lib/server/agent.js';
+import { closeGamePool } from '$lib/server/services/game-db.js';
 
 /** @type {import('./$types').RequestHandler} */
-export async function POST({ request }) {
+export async function POST() {
 	try {
-		const { clientId } = await request.json();
-
-		if (!clientId) {
-			return json({ success: false, error: 'clientId is required' }, { status: 400 });
-		}
-
-		const result = await sendRequest('disconnect', 'mysql', { clientId });
-		return json(result);
+		await closeGamePool();
+		return json({ success: true });
 	} catch (err) {
 		return json({ success: false, error: err.message }, { status: 500 });
 	}

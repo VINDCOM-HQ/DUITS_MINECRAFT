@@ -1,0 +1,25 @@
+pluginManagement {
+    repositories {
+        maven { url 'https://maven.fabricmc.net/' }
+        maven { url 'https://maven.architectury.dev/' }
+        maven { url 'https://maven.minecraftforge.net/' }
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = 'netherdeck'
+
+include 'libraries:netherdeck-api'
+include 'libraries:netherdeck-mixin-tools'
+include 'libraries:netherdeck-tools'
+
+include 'installer'
+include 'i18n-config'
+
+include 'netherdeck-common'
+
+include 'netherdeck-forge'
+include 'netherdeck-neoforge'
+include 'netherdeck-fabric'
+
+include 'bootstrap'

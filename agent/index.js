@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * DUITS Minecraft RMM Agent
+ * VINDCOM NetherDeck Agent
  *
  * Exposes both HTTP(S) endpoints and Socket.IO interface to proxy RCON and Query calls (and more) via a single port.
  * Secured by API key (environment variable AGENT_API_KEY or config file).

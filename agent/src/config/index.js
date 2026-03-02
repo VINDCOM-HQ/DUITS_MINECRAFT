@@ -1,5 +1,5 @@
 /**
- * Configuration management for the DUITS Minecraft RMM Agent
+ * Configuration management for the VINDCOM NetherDeck Agent
  * Loads configuration from environment variables and config file
  */
 const path = require('path');

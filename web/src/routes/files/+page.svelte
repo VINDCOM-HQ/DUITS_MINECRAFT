@@ -1,17 +1,9 @@
 <script>
-	import { smbConnect, smbCommand, smbDisconnect } from '$lib/api.js';
-	import { getSmb, setSmb } from '$lib/stores/connections.svelte.js';
+	import { filesList, filesRead, filesWrite, filesDelete, filesMkdir, filesUpload } from '$lib/api.js';
 	import { error as toastError, success as toastSuccess } from '$lib/stores/toast.svelte.js';
 	import Modal from '$lib/components/Modal.svelte';
 
-	let host = $state('');
-	let share = $state('');
-	let username = $state('');
-	let password = $state('');
-	let domain = $state('');
-	let connecting = $state(false);
-
-	let currentPath = $state('\\');
+	let currentPath = $state('');
 	let files = $state([]);
 	let loadingFiles = $state(false);
 
@@ -22,38 +14,23 @@
 	let deleteTarget = $state(null);
 	let deleteOpen = $state(false);
 
+	let mkdirOpen = $state(false);
+	let mkdirName = $state('');
+
 	let findQuery = $state('');
 	let findMatches = $state([]);
 	let findIndex = $state(0);
 
-	async function connect() {
-		connecting = true;
-		try {
-			const result = await smbConnect(host, share, username, password, domain);
-			setSmb({ clientId: result.clientId, connected: true, host, share });
-			toastSuccess('SMB connected');
-			await loadDir('\\');
-		} catch (err) {
-			toastError(err.message);
-		} finally {
-			connecting = false;
-		}
-	}
-
-	async function disconnect() {
-		try {
-			await smbDisconnect(getSmb().clientId);
-		} catch (_) {}
-		setSmb({ clientId: null, connected: false, host: '', share: '' });
-		files = [];
-		currentPath = '\\';
-	}
+	// Load root directory on mount
+	$effect(() => {
+		loadDir('');
+	});
 
 	async function loadDir(path) {
 		loadingFiles = true;
 		try {
-			const result = await smbCommand(getSmb().clientId, 'readdir', path);
-			files = (result.list || []).sort((a, b) => {
+			const result = await filesList(path);
+			files = (result.entries || []).sort((a, b) => {
 				if (a.isDirectory && !b.isDirectory) return -1;
 				if (!a.isDirectory && b.isDirectory) return 1;
 				return a.name.localeCompare(b.name);
@@ -68,7 +45,7 @@
 
 	function navigate(name, isDir) {
 		if (isDir) {
-			const newPath = currentPath === '\\' ? `\\${name}` : `${currentPath}\\${name}`;
+			const newPath = currentPath ? `${currentPath}/${name}` : name;
 			loadDir(newPath);
 		} else {
 			openFile(name);
@@ -76,18 +53,18 @@
 	}
 
 	function goUp() {
-		if (currentPath === '\\') return;
-		const parts = currentPath.split('\\').filter(Boolean);
+		if (!currentPath) return;
+		const parts = currentPath.split('/').filter(Boolean);
 		parts.pop();
-		loadDir(parts.length > 0 ? `\\${parts.join('\\')}` : '\\');
+		loadDir(parts.join('/'));
 	}
 
 	async function openFile(name) {
-		const path = currentPath === '\\' ? `\\${name}` : `${currentPath}\\${name}`;
+		const path = currentPath ? `${currentPath}/${name}` : name;
 		try {
-			const result = await smbCommand(getSmb().clientId, 'readFile', path, null, 'utf-8');
+			const result = await filesRead(path);
 			editingFile = path;
-			editContent = result.data || result.content || '';
+			editContent = result.content || '';
 			editDirty = false;
 			findQuery = '';
 			findMatches = [];
@@ -99,7 +76,7 @@
 	async function saveFile() {
 		if (!editingFile) return;
 		try {
-			await smbCommand(getSmb().clientId, 'writeFile', editingFile, editContent, 'utf-8');
+			await filesWrite(editingFile, editContent, false);
 			toastSuccess('File saved');
 			editDirty = false;
 		} catch (err) {
@@ -121,9 +98,9 @@
 
 	async function executeDelete() {
 		if (!deleteTarget) return;
-		const path = currentPath === '\\' ? `\\${deleteTarget.name}` : `${currentPath}\\${deleteTarget.name}`;
+		const path = currentPath ? `${currentPath}/${deleteTarget.name}` : deleteTarget.name;
 		try {
-			await smbCommand(getSmb().clientId, 'unlink', path);
+			await filesDelete(path);
 			toastSuccess(`Deleted ${deleteTarget.name}`);
 			loadDir(currentPath);
 		} catch (err) {
@@ -131,6 +108,21 @@
 		}
 		deleteOpen = false;
 		deleteTarget = null;
+	}
+
+	async function createDirectory() {
+		const name = mkdirName.trim();
+		if (!name) return;
+		const path = currentPath ? `${currentPath}/${name}` : name;
+		try {
+			await filesMkdir(path);
+			toastSuccess(`Created directory ${name}`);
+			loadDir(currentPath);
+		} catch (err) {
+			toastError(err.message);
+		}
+		mkdirOpen = false;
+		mkdirName = '';
 	}
 
 	async function handleUpload(e) {
@@ -145,8 +137,8 @@
 					reader.onerror = reject;
 					reader.readAsDataURL(file);
 				});
-				const path = currentPath === '\\' ? `\\${file.name}` : `${currentPath}\\${file.name}`;
-				await smbCommand(getSmb().clientId, 'writeFile', path, content, 'base64');
+				const path = currentPath ? `${currentPath}/${file.name}` : file.name;
+				await filesUpload(path, content, true);
 				toastSuccess(`Uploaded ${file.name}`);
 			} catch (err) {
 				toastError(`Upload failed: ${file.name}`);
@@ -157,11 +149,11 @@
 	}
 
 	async function downloadFile(name) {
-		const path = currentPath === '\\' ? `\\${name}` : `${currentPath}\\${name}`;
+		const path = currentPath ? `${currentPath}/${name}` : name;
 		try {
-			const result = await smbCommand(getSmb().clientId, 'readFile', path, null, 'base64');
-			const content = result.data || result.content || '';
-			const blob = new Blob([Uint8Array.from(atob(content), (c) => c.charCodeAt(0))]);
+			const result = await filesRead(path);
+			const content = result.content || '';
+			const blob = new Blob([content], { type: 'text/plain' });
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
@@ -194,120 +186,122 @@
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 	}
+
+	const breadcrumbs = $derived.by(() => {
+		const parts = currentPath.split('/').filter(Boolean);
+		return parts.map((part, i) => ({
+			name: part,
+			path: parts.slice(0, i + 1).join('/')
+		}));
+	});
 </script>
 
-<div class="max-w-5xl">
-	<h1 class="text-2xl font-bold text-gray-100 mb-6">File Browser</h1>
+<div class="w-full">
+	<h1 class="text-2xl font-bold text-obsidian-100 mb-6">File Browser</h1>
 
-	<!-- Connection -->
-	{#if !getSmb().connected}
-		<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-			<h2 class="text-sm font-medium text-gray-400 mb-4">SMB Connection</h2>
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-				<input type="text" bind:value={host} placeholder="Host (e.g. \\\\server)" class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm placeholder-gray-500" />
-				<input type="text" bind:value={share} placeholder="Share name" class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm placeholder-gray-500" />
-				<input type="text" bind:value={username} placeholder="Username" class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm placeholder-gray-500" />
-				<input type="password" bind:value={password} placeholder="Password" class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm placeholder-gray-500" />
-				<input type="text" bind:value={domain} placeholder="Domain (optional)" class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-gray-100 text-sm placeholder-gray-500" />
+	{#if editingFile}
+		<!-- File Editor -->
+		<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl overflow-hidden mb-4">
+			<div class="flex items-center justify-between px-4 py-3 border-b border-obsidian-700">
+				<span class="text-sm text-obsidian-200 font-mono">{editingFile}</span>
+				<div class="flex gap-2">
+					<button onclick={saveFile} disabled={!editDirty} class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-xs rounded-lg">Save</button>
+					<button onclick={closeEditor} class="px-3 py-1 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-xs rounded-lg">Close</button>
+				</div>
 			</div>
-			<button
-				onclick={connect}
-				disabled={connecting || !host || !share}
-				class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-gray-500 text-white text-sm rounded-lg"
-			>
-				{connecting ? 'Connecting...' : 'Connect'}
-			</button>
+			<!-- Find bar -->
+			<div class="flex items-center gap-2 px-4 py-2 border-b border-obsidian-700 bg-obsidian-700/50">
+				<input type="text" bind:value={findQuery} oninput={findInFile} placeholder="Find..." class="flex-1 px-2 py-1 bg-obsidian-800 border border-obsidian-600 rounded text-obsidian-100 text-xs" />
+				<span class="text-xs text-obsidian-300">{findMatches.length} matches</span>
+				<button onclick={() => { findIndex = Math.max(0, findIndex - 1); }} disabled={findMatches.length === 0} class="text-xs text-obsidian-200 hover:text-obsidian-100 disabled:opacity-50">Prev</button>
+				<button onclick={() => { findIndex = Math.min(findMatches.length - 1, findIndex + 1); }} disabled={findMatches.length === 0} class="text-xs text-obsidian-200 hover:text-obsidian-100 disabled:opacity-50">Next</button>
+			</div>
+			<textarea
+				bind:value={editContent}
+				oninput={() => { editDirty = true; }}
+				class="w-full h-96 p-4 bg-obsidian-950 text-obsidian-100 font-mono text-sm resize-none focus:outline-none"
+				spellcheck="false"
+			></textarea>
 		</div>
 	{:else}
-		<!-- File Browser -->
-		{#if editingFile}
-			<!-- File Editor -->
-			<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden mb-4">
-				<div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-					<span class="text-sm text-gray-300 font-mono">{editingFile}</span>
-					<div class="flex gap-2">
-						<button onclick={saveFile} disabled={!editDirty} class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-gray-500 text-white text-xs rounded-lg">Save</button>
-						<button onclick={closeEditor} class="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-gray-300 text-xs rounded-lg">Close</button>
-					</div>
+		<div class="bg-obsidian-900 border border-obsidian-700 rounded-xl overflow-hidden">
+			<div class="flex items-center justify-between px-4 py-3 border-b border-obsidian-700">
+				<div class="flex items-center gap-2">
+					<button onclick={goUp} disabled={!currentPath} class="px-2 py-1 bg-obsidian-800 hover:bg-obsidian-700 disabled:opacity-50 text-obsidian-200 text-xs rounded">&larr; Back</button>
+					<span class="text-sm text-obsidian-200 font-mono">/{currentPath || ''}</span>
 				</div>
-				<!-- Find bar -->
-				<div class="flex items-center gap-2 px-4 py-2 border-b border-slate-800 bg-slate-800/50">
-					<input type="text" bind:value={findQuery} oninput={findInFile} placeholder="Find..." class="flex-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-gray-100 text-xs" />
-					<span class="text-xs text-gray-500">{findMatches.length} matches</span>
-					<button onclick={() => { findIndex = Math.max(0, findIndex - 1); }} disabled={findMatches.length === 0} class="text-xs text-gray-400 hover:text-gray-200 disabled:opacity-50">Prev</button>
-					<button onclick={() => { findIndex = Math.min(findMatches.length - 1, findIndex + 1); }} disabled={findMatches.length === 0} class="text-xs text-gray-400 hover:text-gray-200 disabled:opacity-50">Next</button>
+				<div class="flex gap-2">
+					<button onclick={() => { mkdirOpen = true; }} class="px-3 py-1 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-xs rounded-lg">New Folder</button>
+					<label class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded-lg cursor-pointer">
+						Upload
+						<input type="file" multiple onchange={handleUpload} class="hidden" />
+					</label>
+					<button onclick={() => loadDir(currentPath)} class="px-3 py-1 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-xs rounded-lg">{loadingFiles ? '...' : 'Refresh'}</button>
 				</div>
-				<textarea
-					bind:value={editContent}
-					oninput={() => { editDirty = true; }}
-					class="w-full h-96 p-4 bg-slate-950 text-gray-100 font-mono text-sm resize-none focus:outline-none"
-					spellcheck="false"
-				></textarea>
 			</div>
-		{:else}
-			<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-				<div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-					<div class="flex items-center gap-2">
-						<button onclick={goUp} disabled={currentPath === '\\'} class="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-gray-300 text-xs rounded">&larr; Back</button>
-						<span class="text-sm text-gray-400 font-mono">{currentPath}</span>
-					</div>
-					<div class="flex gap-2">
-						<label class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg cursor-pointer">
-							Upload
-							<input type="file" multiple onchange={handleUpload} class="hidden" />
-						</label>
-						<button onclick={() => loadDir(currentPath)} class="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-gray-300 text-xs rounded-lg">{loadingFiles ? '...' : 'Refresh'}</button>
-						<button onclick={disconnect} class="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white text-xs rounded-lg">Disconnect</button>
-					</div>
-				</div>
 
-				<div class="max-h-[60vh] overflow-y-auto">
-					<table class="w-full text-sm">
-						<thead class="bg-slate-800 sticky top-0">
-							<tr>
-								<th class="text-left px-4 py-2 text-gray-400 font-medium">Name</th>
-								<th class="text-right px-4 py-2 text-gray-400 font-medium w-24">Size</th>
-								<th class="text-right px-4 py-2 text-gray-400 font-medium w-32">Actions</th>
+			<div class="max-h-[60vh] overflow-y-auto">
+				<table class="w-full text-sm">
+					<thead class="bg-obsidian-800 sticky top-0">
+						<tr>
+							<th class="text-left px-4 py-2 text-obsidian-200 font-medium">Name</th>
+							<th class="text-right px-4 py-2 text-obsidian-200 font-medium w-24">Size</th>
+							<th class="text-right px-4 py-2 text-obsidian-200 font-medium w-32">Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each files as file}
+							<tr class="border-t border-obsidian-700 hover:bg-obsidian-700/50">
+								<td class="px-4 py-2">
+									<button
+										onclick={() => navigate(file.name, file.isDirectory)}
+										class="text-left text-obsidian-100 hover:text-purple-400 transition-colors"
+									>
+										<span class="text-obsidian-300 mr-2">{file.isDirectory ? '[DIR]' : '[FILE]'}</span>
+										{file.name}
+									</button>
+								</td>
+								<td class="text-right px-4 py-2 text-obsidian-300">{file.isDirectory ? '-' : formatSize(file.size)}</td>
+								<td class="text-right px-4 py-2">
+									{#if !file.isDirectory}
+										<button onclick={() => downloadFile(file.name)} class="text-xs text-purple-400 hover:text-purple-300 mr-2">Download</button>
+										<button onclick={() => confirmDelete(file)} class="text-xs text-rose-400 hover:text-rose-300">Delete</button>
+									{/if}
+								</td>
 							</tr>
-						</thead>
-						<tbody>
-							{#each files as file}
-								<tr class="border-t border-slate-800 hover:bg-slate-800/50">
-									<td class="px-4 py-2">
-										<button
-											onclick={() => navigate(file.name, file.isDirectory)}
-											class="text-left text-gray-200 hover:text-indigo-400 transition-colors"
-										>
-											<span class="text-gray-500 mr-2">{file.isDirectory ? '[DIR]' : '[FILE]'}</span>
-											{file.name}
-										</button>
-									</td>
-									<td class="text-right px-4 py-2 text-gray-500">{file.isDirectory ? '-' : formatSize(file.size)}</td>
-									<td class="text-right px-4 py-2">
-										{#if !file.isDirectory}
-											<button onclick={() => downloadFile(file.name)} class="text-xs text-indigo-400 hover:text-indigo-300 mr-2">Download</button>
-											<button onclick={() => confirmDelete(file)} class="text-xs text-rose-400 hover:text-rose-300">Delete</button>
-										{/if}
-									</td>
-								</tr>
-							{/each}
-							{#if files.length === 0 && !loadingFiles}
-								<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500 italic">Empty directory</td></tr>
-							{/if}
-						</tbody>
-					</table>
-				</div>
+						{/each}
+						{#if files.length === 0 && !loadingFiles}
+							<tr><td colspan="3" class="px-4 py-8 text-center text-obsidian-300 italic">Empty directory</td></tr>
+						{/if}
+					</tbody>
+				</table>
 			</div>
-		{/if}
+		</div>
 	{/if}
 </div>
 
 <Modal open={deleteOpen} title="Confirm Delete" onclose={() => { deleteOpen = false; }}>
 	{#snippet children()}
-		<p class="text-gray-300 mb-4">Delete <strong class="text-rose-400">{deleteTarget?.name}</strong>?</p>
+		<p class="text-obsidian-200 mb-4">Delete <strong class="text-rose-400">{deleteTarget?.name}</strong>?</p>
 		<div class="flex gap-2 justify-end">
-			<button onclick={() => { deleteOpen = false; }} class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 text-sm rounded-lg">Cancel</button>
+			<button onclick={() => { deleteOpen = false; }} class="px-4 py-2 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-sm rounded-lg">Cancel</button>
 			<button onclick={executeDelete} class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm rounded-lg">Delete</button>
+		</div>
+	{/snippet}
+</Modal>
+
+<Modal open={mkdirOpen} title="New Folder" onclose={() => { mkdirOpen = false; }}>
+	{#snippet children()}
+		<input
+			type="text"
+			bind:value={mkdirName}
+			placeholder="Folder name"
+			class="w-full px-3 py-2 bg-obsidian-700 border border-obsidian-500 rounded-lg text-obsidian-100 text-sm mb-4"
+			onkeydown={(e) => { if (e.key === 'Enter') createDirectory(); }}
+		/>
+		<div class="flex gap-2 justify-end">
+			<button onclick={() => { mkdirOpen = false; }} class="px-4 py-2 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-sm rounded-lg">Cancel</button>
+			<button onclick={createDirectory} disabled={!mkdirName.trim()} class="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-sm rounded-lg">Create</button>
 		</div>
 	{/snippet}
 </Modal>

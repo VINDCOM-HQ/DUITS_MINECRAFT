@@ -1,0 +1,19 @@
+plugins {
+    id 'java-library'
+}
+
+group 'io.github.netherdeck'
+
+dependencies {
+    compileOnly 'org.ow2.asm:asm:9.3'
+    compileOnly 'org.ow2.asm:asm-tree:9.3'
+    compileOnly "org.spigotmc:spigot-api:${libs.versions.spigot.api.get()}"
+    compileOnly 'net.minecraftforge:eventbus:4.0.0'
+}
+
+java {
+    withSourcesJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}

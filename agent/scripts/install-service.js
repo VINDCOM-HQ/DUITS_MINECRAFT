@@ -15,8 +15,8 @@ const platform = os.platform();
 const isAdmin = checkAdmin();
 const agentDir = path.resolve(__dirname, '..');
 const serviceConfig = {
-  name: 'DUITS-MC-Agent',
-  description: 'DUITS Minecraft RMM Agent Relay Service',
+  name: 'VINDCOM-NetherDeck-Agent',
+  description: 'VINDCOM NetherDeck Agent Relay Service',
   script: path.join(agentDir, 'index.js')
 };
 
@@ -299,13 +299,13 @@ function installMacService() {
     }
     
     // Create launchd plist file
-    const plistFile = `/Library/LaunchDaemons/com.duits.${serviceConfig.name.toLowerCase()}.plist`;
+    const plistFile = `/Library/LaunchDaemons/com.vindcom.${serviceConfig.name.toLowerCase()}.plist`;
     const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.duits.${serviceConfig.name.toLowerCase()}</string>
+    <string>com.vindcom.${serviceConfig.name.toLowerCase()}</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/node</string>
@@ -338,7 +338,7 @@ ${envXml}
     execSync(`launchctl load ${plistFile}`, { stdio: 'inherit' });
     
     console.log('Service installed and started successfully!');
-    console.log(`To check status: launchctl list | grep com.duits.${serviceConfig.name.toLowerCase()}`);
+    console.log(`To check status: launchctl list | grep com.vindcom.${serviceConfig.name.toLowerCase()}`);
   } catch (err) {
     console.error('Failed to install macOS service:', err);
     process.exit(1);
@@ -364,7 +364,7 @@ function ensureEnvFile() {
 }
 
 // Main execution
-console.log(`=== DUITS Minecraft RMM Agent Service Installer ===`);
+console.log(`=== VINDCOM NetherDeck Agent Service Installer ===`);
 console.log(`Platform: ${platform}`);
 
 // Ensure .env file exists

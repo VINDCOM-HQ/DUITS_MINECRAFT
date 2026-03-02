@@ -1,14 +1,15 @@
 {
-  "name": "duits-mc-rcon-client",
+  "name": "vindcom-netherdeck",
   "version": "2.0.0",
-  "description": "DUITS DUITS Minecraft RMM Tool",
+  "description": "NetherDeck - Minecraft Server Management",
   "main": "main.js",
   "author": "Harrison Windberg",
   "license": "MIT",
   "scripts": {
     "build:css": "npx @tailwindcss/cli -i ./input.css -o ./tailwind.css --minify",
     "start": "npm run build:css && electron .",
-    "dist": "npm run build:css && electron-builder"
+    "dist": "npm run build:css && electron-builder",
+    "postinstall": "cd ../agent && npm install --omit=dev"
   },
   "devDependencies": {
     "@parcel/watcher": "^2.5.1",
@@ -19,8 +20,8 @@
     "tailwindcss": "^4.1.4"
   },
   "build": {
-    "appId": "com.duits.mcrcon",
-    "productName": "DUITS DUITS Minecraft RMM Tool",
+    "appId": "com.vindcom.netherdeck",
+    "productName": "NetherDeck",
     "files": [
       "index.html",
       "preload.js",
@@ -29,19 +30,23 @@
       "tailwind.css",
       "ipc/**/*",
       "lib/**/*",
-      "agent/**/*",
       "renderer/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      {
+        "from": "../agent",
+        "to": "agent",
+        "filter": ["**/*", "!tests", "!.env", "!*.md", "!scripts", "!traefik", "!docker-compose.yml", "!Dockerfile"]
+      }
     ],
     "asar": true,
     "win": {
       "target": "msi",
-      "executableName": "DUITS DUITS Minecraft RMM Tool",
+      "executableName": "NetherDeck",
       "icon": "icon.ico"
     },
     "msi": {
       "perMachine": true,
-      "shortcutName": "DUITS DUITS Minecraft RMM Tool"
+      "shortcutName": "NetherDeck"
     }
   },
   "dependencies": {

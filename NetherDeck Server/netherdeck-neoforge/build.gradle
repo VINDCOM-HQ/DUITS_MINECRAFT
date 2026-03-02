@@ -1,0 +1,91 @@
+plugins {
+    id 'architectury-plugin'
+    id 'com.gradleup.shadow'
+}
+
+architectury {
+    platformSetupLoomIde()
+    neoForge()
+}
+
+loom {
+    neoForge {
+    }
+}
+
+dependencies {
+    neoForge libs.neoforge
+
+    implementation project(':libraries:netherdeck-tools')
+    implementation project(':libraries:netherdeck-api')
+    implementation project(':libraries:netherdeck-mixin-tools')
+
+    implementation(libs.bundles.spigot.shade) { transitive = false }
+    shadowBundle(libs.bundles.spigot.shade) { transitive = false }
+    implementation rootProject.ext.generatedSpigot
+    shadowBundle rootProject.ext.generatedSpigot
+
+    // XXX: for compiling (netherdeck-api): NeoForgeNetherDeckServer#registerForgeEvent
+    compileOnly("net.minecraftforge:eventbus:4.0.0") { transitive = false }
+
+    implementation(project(':i18n-config')) { transitive = false }
+
+    // World Map (vendored BlueMap Core + deps — libraries/bluemap/)
+    implementation fileTree(dir: "${rootProject.projectDir}/libraries/bluemap", include: '*.jar')
+    shadowBundle fileTree(dir: "${rootProject.projectDir}/libraries/bluemap", include: '*.jar')
+
+    common(project(path: ':netherdeck-common', configuration: 'namedElements')) { transitive = false }
+    shadowBundle(project(path: ':netherdeck-common', configuration: 'transformProductionNeoForge')) { transitive = false }
+}
+
+tasks.register('neoforgeMappings', Copy) {
+    destinationDir = file('build/neoforge_mappings')
+    from(netherdeck.mappingsConfiguration.bukkitToNeoForge) {
+        rename { name -> 'bukkit_srg.srg' }
+    }
+    from(netherdeck.mappingsConfiguration.bukkitToNeoForge) {
+        rename { name -> 'bukkit_moj.srg'}
+    }
+    from netherdeck.mappingsConfiguration.bukkitToForgeInheritance
+}
+
+project.sourceSets.main.output.dir file('build/neoforge_mappings'), builtBy: tasks.neoforgeMappings
+
+processResources {
+    def ver = "${project.version}+$gitHash"
+    inputs.property 'version', ver
+
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand 'version': ver
+    }
+}
+
+shadowJar {
+    exclude 'fabric.mod.json'
+    exclude 'architectury.common.json'
+
+    configurations = [project.configurations.shadowBundle]
+    archiveClassifier = 'dev-shadow'
+}
+
+remapJar {
+    inputFile.set shadowJar.archiveFile
+    dependsOn shadowJar
+    atAccessWideners.add(loom.accessWidenerPath.get().asFile.getName())
+}
+
+tasks.register('srgJar', Jar) {
+    from(tasks.remapJar.outputs.files.collect { it.isDirectory() ? it : zipTree(it) }) {
+        include 'io/github/netherdeck/**'
+        exclude 'io/github/netherdeck/common/mixin/**'
+        exclude 'io/github/netherdeck/forge/mixin/**'
+    }
+    archiveClassifier.set('srg')
+    dependsOn remapJar
+}
+
+sourcesJar {
+    def commonSources = rootProject.ext.commonProject.sourcesJar
+    dependsOn commonSources
+    from commonSources.archiveFile.map { zipTree(it) }
+}

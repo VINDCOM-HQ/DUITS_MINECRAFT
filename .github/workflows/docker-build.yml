@@ -4,26 +4,30 @@ on:
   push:
     branches: [develop, main]
     paths:
-      - 'DUITS_MINECRAFT/**'
+      - 'container/**'
       - 'agent/**'
       - 'web/**'
+      - 'NetherDeck Server/build/libs/**'
       - '.github/workflows/docker-build.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'DUITS_MINECRAFT/**'
+      - 'container/**'
       - 'agent/**'
       - 'web/**'
+      - 'NetherDeck Server/build/libs/**'
   workflow_dispatch:
-
-env:
-  IMAGE_NAME: downunderit/minecraft
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        loader: [forge, neoforge, fabric]
 
     steps:
       - name: Checkout
@@ -43,7 +47,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: vindcom/netherdeck-${{ matrix.loader }}
           tags: |
             type=ref,event=branch
             type=sha,prefix=
@@ -53,9 +57,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: DUITS_MINECRAFT/Dockerfile
+          file: container/Dockerfile
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: LOADER=${{ matrix.loader }}
+          cache-from: type=gha,scope=${{ matrix.loader }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.loader }}

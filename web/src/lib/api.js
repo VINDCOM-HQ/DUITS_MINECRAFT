@@ -1,6 +1,7 @@
 /**
  * Client-side API helper for making requests to the SvelteKit server endpoints.
- * These endpoints proxy to the agent relay server.
+ * All services auto-connect using server-side environment variables.
+ * No manual host/port/password configuration needed.
  */
 
 async function request(method, url, body) {
@@ -23,52 +24,116 @@ async function request(method, url, body) {
 	return data;
 }
 
-// RCON
-export function rconConnect(host, port, password) {
-	return request('POST', '/api/rcon/connect', { host, port, password });
+// RCON (auto-connects using env vars)
+export function rconConnect() {
+	return request('POST', '/api/rcon/connect');
 }
 
-export function rconCommand(clientId, command) {
-	return request('POST', '/api/rcon/command', { clientId, command });
+export function rconCommand(command) {
+	return request('POST', '/api/rcon/command', { command });
 }
 
-export function rconDisconnect(clientId) {
-	return request('POST', '/api/rcon/disconnect', { clientId });
+export function rconDisconnect() {
+	return request('POST', '/api/rcon/disconnect');
 }
 
-// Query
-export function queryServer(host, port, mode = 'basic', bypassCache = false) {
-	const params = new URLSearchParams({ host, port, mode, bypassCache });
+export function rconStatus() {
+	return request('GET', '/api/rcon/status');
+}
+
+// Query (server uses env vars for host/port)
+export function queryServer(mode = 'basic', bypassCache = false) {
+	const params = new URLSearchParams({ mode, bypassCache });
 	return request('GET', `/api/query?${params}`);
 }
 
-// SMB
-export function smbConnect(host, share, username, password, domain) {
-	return request('POST', '/api/smb/connect', { host, share, username, password, domain });
+// Files (direct filesystem via MC_DIR env var)
+export function filesList(path = '') {
+	const params = new URLSearchParams({ path });
+	return request('GET', `/api/files/list?${params}`);
 }
 
-export function smbCommand(clientId, operation, path, data, encoding) {
-	return request('POST', '/api/smb/command', { clientId, operation, path, data, encoding });
+export function filesRead(path) {
+	const params = new URLSearchParams({ path });
+	return request('GET', `/api/files/read?${params}`);
 }
 
-export function smbDisconnect(clientId) {
-	return request('POST', '/api/smb/disconnect', { clientId });
+export function filesWrite(path, content, isBase64 = false) {
+	return request('POST', '/api/files/write', { path, content, isBase64 });
 }
 
-// MySQL
-export function mysqlConnect(host, port, user, password, database, ssl) {
-	return request('POST', '/api/mysql/connect', { host, port, user, password, database, ssl });
+export function filesDelete(path) {
+	return request('POST', '/api/files/delete', { path });
 }
 
-export function mysqlQuery(clientId, sql, params) {
-	return request('POST', '/api/mysql/query', { clientId, sql, params });
+export function filesMkdir(path) {
+	return request('POST', '/api/files/mkdir', { path });
 }
 
-export function mysqlDisconnect(clientId) {
-	return request('POST', '/api/mysql/disconnect', { clientId });
+export function filesUpload(path, content, isBase64 = true) {
+	return request('POST', '/api/files/upload', { path, content, isBase64 });
 }
 
-// Status
+export function filesInfo(path) {
+	const params = new URLSearchParams({ path });
+	return request('GET', `/api/files/info?${params}`);
+}
+
+// MySQL / Game Database (auto-connects using env vars)
+export function mysqlConnect() {
+	return request('POST', '/api/mysql/connect');
+}
+
+export function mysqlQuery(sql, params) {
+	return request('POST', '/api/mysql/query', { sql, params });
+}
+
+export function mysqlDisconnect() {
+	return request('POST', '/api/mysql/disconnect');
+}
+
+// Server control (supervisorctl)
+export function serverControl(action) {
+	return request('POST', '/api/server/control', { action });
+}
+
+export function serverStatus() {
+	return request('GET', '/api/server/status');
+}
+
+// System status
 export function getStatus() {
 	return request('GET', '/api/status');
+}
+
+// Security / Login Attempts (admin only)
+export function loginAttemptsSummary() {
+	return request('GET', '/api/auth/login-attempts?mode=summary');
+}
+
+export function loginAttemptsFull(limit = 50, offset = 0) {
+	const params = new URLSearchParams({ mode: 'full', limit: String(limit), offset: String(offset) });
+	return request('GET', `/api/auth/login-attempts?${params}`);
+}
+
+// World Map
+export function mapMetadata() {
+	return request('GET', '/api/map/metadata');
+}
+
+export function mapPlayers() {
+	return request('GET', '/api/map/players');
+}
+
+/**
+ * Build the URL for a map tile.
+ * @param {string} worldId - World identifier (e.g. "minecraft_overworld")
+ * @param {number} zoom - Zoom level
+ * @param {number} x - Tile X coordinate
+ * @param {number} z - Tile Z coordinate
+ * @param {string} [ext='png'] - File extension
+ * @returns {string} Tile URL
+ */
+export function mapTileUrl(worldId, zoom, x, z, ext = 'png') {
+	return `/api/map/tiles/${worldId}/${zoom}/${x}_${z}.${ext}`;
 }

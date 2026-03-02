@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * DUITS Minecraft RMM Agent Server
+ * VINDCOM NetherDeck Agent Server
  * 
  * Starts the agent server and handles process events
  */
@@ -25,7 +25,7 @@ async function startServer() {
     // Start listening on the configured port
     return new Promise((resolve, reject) => {
       server.listen(config.port, () => {
-        console.log(`[SERVER] Minecraft RCON Agent server listening on port ${config.port}`);
+        console.log(`[SERVER] NetherDeck Agent server listening on port ${config.port}`);
         console.log(`[SERVER] API Key ${config.apiKey ? 'configured' : 'not configured'}`);
         console.log(`[SERVER] TLS ${config.tls && config.tls.enabled ? 'enabled' : 'disabled'}`);
         console.log(`[SERVER] CORS ${config.allowCors ? 'enabled' : 'disabled'}`);

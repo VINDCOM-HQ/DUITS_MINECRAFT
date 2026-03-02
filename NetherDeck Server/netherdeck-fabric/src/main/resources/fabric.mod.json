@@ -1,0 +1,32 @@
+{
+  "id": "netherdeck",
+  "version": "${version}",
+  "schemaVersion": 1,
+  "name": "NetherDeck",
+  "authors": [
+    "DownUnderIT Solutions",
+    "IzzelAliz (Arclight)"
+  ],
+  "description": "NetherDeck - Paper-performance Fabric+Bukkit hybrid server (based on Arclight)",
+  "license": "GNU GENERAL PUBLIC LICENSE Version 3",
+  "environment": "server",
+  "mixins": [
+    "mixins.netherdeck.fabric.json",
+    "mixins.netherdeck.core.json",
+    "mixins.netherdeck.bukkit.json",
+    "mixins.netherdeck.vanilla.json",
+    "mixins.netherdeck.impl.optimization.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16",
+    "fabric-permissions-api-v0": ">=0.3"
+  },
+  "entrypoints": {
+    "main": [
+      "io.github.netherdeck.fabric.NetherDeckModEntrypoint"
+    ],
+    "netherdeck_boot": [
+      "io.github.netherdeck.fabric.boot.FabricBootstrap"
+    ]
+  }
+}
