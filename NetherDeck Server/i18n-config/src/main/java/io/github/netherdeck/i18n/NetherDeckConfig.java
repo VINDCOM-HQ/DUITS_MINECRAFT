@@ -46,7 +46,7 @@ public class NetherDeckConfig {
     private static void load() throws Exception {
         Path path = Paths.get("netherdeck.conf");
         CommentedConfigurationNode node = HoconConfigurationLoader.builder().setSource(
-            () -> new BufferedReader(new InputStreamReader(NetherDeckConfig.class.getResourceAsStream("/META-INF/netherdeck.conf"), StandardCharsets.UTF_8))
+            () -> new BufferedReader(new InputStreamReader(NetherDeckConfig.class.getResourceAsStream("/META-INF/arclight.conf"), StandardCharsets.UTF_8))
         ).build().load();
         HoconConfigurationLoader loader = HoconConfigurationLoader.builder().setPath(path).build();
         CommentedConfigurationNode cur = loader.load();

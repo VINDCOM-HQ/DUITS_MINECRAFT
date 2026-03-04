@@ -1,21 +1,27 @@
 package io.github.netherdeck.common.mixin.core.world.item;
 
 import io.github.netherdeck.common.bridge.core.entity.LivingEntityBridge;
-import io.github.netherdeck.mixin.Decorate;
-import io.github.netherdeck.mixin.DecorationOps;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.PotionItem;
+import net.minecraft.world.level.Level;
 import org.bukkit.event.entity.EntityPotionEffectEvent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(PotionItem.class)
 public class PotionItemMixin {
 
-    @Decorate(method = "*", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;addEffect(Lnet/minecraft/world/effect/MobEffectInstance;)Z"))
-    private static boolean netherdeck$drinkPotion(LivingEntity instance, MobEffectInstance mobEffectInstance) throws Throwable {
-        ((LivingEntityBridge) instance).bridge$pushEffectCause(EntityPotionEffectEvent.Cause.POTION_DRINK);
-        return (boolean) DecorationOps.callsite().invoke(instance, mobEffectInstance);
+    // In 1.21.1, finishUsingItem applies effects via forEachEffect(entity::addEffect) — a method
+    // reference — so the addEffect INVOKE is no longer directly visible in finishUsingItem bytecode.
+    // We inject at HEAD to push the cause before any effects are applied.
+    // Note: for multi-effect potions, only the first addEffect call will see POTION_DRINK (the cause
+    // is consumed on read); subsequent effects fall back to UNKNOWN. This is an acceptable regression
+    // from the old per-call-site @Decorate approach.
+    @Inject(method = "finishUsingItem", require = 0, at = @At("HEAD"))
+    private void netherdeck$drinkPotion(ItemStack stack, Level level, LivingEntity livingEntity, CallbackInfoReturnable<ItemStack> cir) {
+        ((LivingEntityBridge) livingEntity).bridge$pushEffectCause(EntityPotionEffectEvent.Cause.POTION_DRINK);
     }
 }

@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.Hopper;
 import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -44,7 +45,7 @@ public abstract class HopperBlockEntityMixin extends BlockEntity {
      * target instance as a parameter, not the mixin type.
      */
     @Inject(method = "suckInItems", at = @At("HEAD"), cancellable = true)
-    private static void netherdeck$skipEmptyPull(Level level, HopperBlockEntity hopper, CallbackInfoReturnable<Boolean> cir) {
+    private static void netherdeck$skipEmptyPull(Level level, Hopper hopper, CallbackInfoReturnable<Boolean> cir) {
         // Access our unique fields through the BlockEntity cast
         // Mixin fields are injected into the target class at runtime
         if (((HopperBlockEntityMixin) (Object) hopper).netherdeck$shouldSkipPull) {
@@ -62,7 +63,7 @@ public abstract class HopperBlockEntityMixin extends BlockEntity {
      * After a failed pull attempt, mark this hopper to skip future pulls temporarily.
      */
     @Inject(method = "suckInItems", at = @At("RETURN"))
-    private static void netherdeck$markEmptyOnFailedPull(Level level, HopperBlockEntity hopper, CallbackInfoReturnable<Boolean> cir) {
+    private static void netherdeck$markEmptyOnFailedPull(Level level, Hopper hopper, CallbackInfoReturnable<Boolean> cir) {
         if (!cir.getReturnValue()) {
             ((HopperBlockEntityMixin) (Object) hopper).netherdeck$shouldSkipPull = true;
             ((HopperBlockEntityMixin) (Object) hopper).netherdeck$lastTickedGameTime = level.getGameTime();
@@ -73,7 +74,7 @@ public abstract class HopperBlockEntityMixin extends BlockEntity {
      * Optimize: Skip the push operation when the hopper itself is empty.
      */
     @Inject(method = "ejectItems", at = @At("HEAD"), cancellable = true)
-    private static void netherdeck$skipFullDestination(Level level, BlockPos pos, BlockState state, HopperBlockEntity hopper, CallbackInfoReturnable<Boolean> cir) {
+    private static void netherdeck$skipFullDestination(Level level, BlockPos pos, HopperBlockEntity hopper, CallbackInfoReturnable<Boolean> cir) {
         boolean isEmpty = true;
         for (int i = 0; i < hopper.getContainerSize(); i++) {
             if (!hopper.getItem(i).isEmpty()) {

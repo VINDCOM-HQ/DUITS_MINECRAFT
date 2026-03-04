@@ -63,6 +63,9 @@ processResources {
 shadowJar {
     exclude 'fabric.mod.json'
     exclude 'architectury.common.json'
+    // lz4 is provided by NeoForge at runtime; excluding avoids a JPMS package-split
+    // between the netherdeck module and org.lz4.java when ModLauncher builds its layer.
+    exclude 'net/jpountz/**'
 
     configurations = [project.configurations.shadowBundle]
     archiveClassifier = 'dev-shadow'

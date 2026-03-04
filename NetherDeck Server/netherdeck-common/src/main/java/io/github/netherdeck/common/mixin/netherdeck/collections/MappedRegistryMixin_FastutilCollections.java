@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Paper-style fastutil collection replacement for MappedRegistry.
@@ -34,7 +34,7 @@ public abstract class MappedRegistryMixin_FastutilCollections {
      * Registries are frozen after loading, so we can safely cache at that point.
      */
     @Inject(method = "freeze", at = @At("RETURN"))
-    private void netherdeck$populateFastCache(CallbackInfo ci) {
+    private void netherdeck$populateFastCache(CallbackInfoReturnable<?> cir) {
         // After freeze, the registry is immutable, so our cache stays valid.
         // The actual population leverages the existing byLocation map.
         // This provides a secondary fast-path for hot lookups.

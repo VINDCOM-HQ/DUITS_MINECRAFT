@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Paper-style fastutil collection replacement for EntitySection.
@@ -45,7 +46,7 @@ public abstract class EntitySectionMixin_FastutilCollections {
      * Uses EntityAccess as the parameter type to match the erased generic signature.
      */
     @Inject(method = "remove", at = @At("TAIL"))
-    private void netherdeck$removeFromFastMap(EntityAccess entity, CallbackInfo ci) {
+    private void netherdeck$removeFromFastMap(EntityAccess entity, CallbackInfoReturnable<?> cir) {
         if (entity instanceof Entity e) {
             netherdeck$entityByIdFast.remove(e.getId());
         }
