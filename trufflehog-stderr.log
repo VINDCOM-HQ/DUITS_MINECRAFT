@@ -1,0 +1,28 @@
+Unable to find image 'trufflesecurity/trufflehog:latest' locally
+latest: Pulling from trufflesecurity/trufflehog
+d49a2dee86fb: Pulling fs layer
+7d8722eaa816: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+5b0029850c88: Pulling fs layer
+b3104fe48632: Pulling fs layer
+b3104fe48632: Waiting
+5b0029850c88: Waiting
+4f4fb700ef54: Verifying Checksum
+4f4fb700ef54: Download complete
+d49a2dee86fb: Download complete
+7d8722eaa816: Verifying Checksum
+7d8722eaa816: Download complete
+b3104fe48632: Verifying Checksum
+b3104fe48632: Download complete
+d49a2dee86fb: Pull complete
+5b0029850c88: Verifying Checksum
+5b0029850c88: Download complete
+7d8722eaa816: Pull complete
+4f4fb700ef54: Pull complete
+5b0029850c88: Pull complete
+b3104fe48632: Pull complete
+Digest: sha256:2b23135478a0b842bcab4b5805a4f9ac48e72a2e01f1b1a866b964c715aa4645
+Status: Downloaded newer image for trufflesecurity/trufflehog:latest
+{"level":"info-0","ts":"2026-03-07T06:46:34Z","logger":"trufflehog","msg":"running source","source_manager_worker_id":"uEGmZ","with_units":true}
+{"level":"info-0","ts":"2026-03-07T06:46:34Z","logger":"trufflehog","msg":"scanning repo","source_manager_worker_id":"uEGmZ","unit_kind":"dir","unit":"/tmp/trufflehog-19-4013687641","repo":"file:///repo"}
+{"level":"info-0","ts":"2026-03-07T06:46:35Z","logger":"trufflehog","msg":"finished scanning","chunks":2961,"bytes":10344063,"verified_secrets":0,"unverified_secrets":0,"scan_duration":"1.208154471s","trufflehog_version":"3.93.7","verification_caching":{"Hits":0,"Misses":2,"HitsWasted":0,"AttemptsSaved":0,"VerificationTimeSpentMS":0}}
