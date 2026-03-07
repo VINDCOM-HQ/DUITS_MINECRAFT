@@ -53,7 +53,7 @@ public class ServerStatusPacketListenerImplMixin implements ServerStatusPacketLi
         ServerStatus ping = bridge$platform$createServerStatus(
             CraftChatMessage.fromString(event.getMotd(), true)[0],
             Optional.of(playerSample),
-            Optional.of(new ServerStatus.Version(server.getServerModName() + " " + server.getServerVersion(), SharedConstants.getCurrentVersion().getProtocolVersion())),
+            Optional.of(new ServerStatus.Version(server.getServerVersion(), SharedConstants.getCurrentVersion().getProtocolVersion())),
             (event.icon.value != null) ? Optional.of(new ServerStatus.Favicon(event.icon.value)) : Optional.empty(),
             server.enforceSecureProfile()
         );

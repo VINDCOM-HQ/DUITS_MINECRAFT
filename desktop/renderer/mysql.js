@@ -282,5 +282,83 @@ import { showConfirmModal } from './modals.js';
     });
   
     refreshMySQLList();
+
+    // Listen for async MySQL connection events from the main process
+    if (window.electronAPI?.onMysqlEvent) {
+      window.electronAPI.onMysqlEvent((data) => {
+        switch (data.type) {
+          case 'error':
+            showToast(`MySQL connection error: ${data.message}`, 'error');
+            break;
+
+          case 'disconnected':
+            mysqlStatusSp.textContent = 'Disconnected';
+            mysqlRunBtn.disabled = true;
+            mysqlDisconnectBtn.disabled = true;
+            mysqlDisconnectBtn.classList.add('hidden');
+            mysqlConnectBtn.classList.remove('hidden');
+            if (mysqlStatusInd) {
+              mysqlStatusInd.classList.remove('bg-green-500');
+              mysqlStatusInd.classList.add('bg-red-500');
+            }
+            if (mysqlStatusSidebar) mysqlStatusSidebar.textContent = 'Disconnected';
+            if (mysqlStatusIndSidebar) {
+              mysqlStatusIndSidebar.classList.remove('bg-green-500');
+              mysqlStatusIndSidebar.classList.add('bg-red-500');
+            }
+            showToast('MySQL connection lost — reconnecting...', 'error');
+            break;
+
+          case 'reconnecting':
+            mysqlStatusSp.textContent = `Reconnecting (${data.attempt}/${data.max})...`;
+            if (mysqlStatusInd) {
+              mysqlStatusInd.classList.remove('bg-green-500', 'bg-red-500', 'bg-gray-400');
+              mysqlStatusInd.classList.add('bg-amber-500');
+            }
+            if (mysqlStatusSidebar) mysqlStatusSidebar.textContent = 'Reconnecting...';
+            if (mysqlStatusIndSidebar) {
+              mysqlStatusIndSidebar.classList.remove('bg-green-500', 'bg-red-500', 'bg-gray-400');
+              mysqlStatusIndSidebar.classList.add('bg-amber-500');
+            }
+            break;
+
+          case 'reconnected':
+            mysqlStatusSp.textContent = 'Reconnected';
+            mysqlRunBtn.disabled = false;
+            mysqlDisconnectBtn.disabled = false;
+            mysqlDisconnectBtn.classList.remove('hidden');
+            mysqlConnectBtn.classList.add('hidden');
+            if (mysqlStatusInd) {
+              mysqlStatusInd.classList.remove('bg-red-500', 'bg-amber-500', 'bg-gray-400');
+              mysqlStatusInd.classList.add('bg-green-500');
+            }
+            if (mysqlStatusSidebar) mysqlStatusSidebar.textContent = 'Connected';
+            if (mysqlStatusIndSidebar) {
+              mysqlStatusIndSidebar.classList.remove('bg-red-500', 'bg-amber-500', 'bg-gray-400');
+              mysqlStatusIndSidebar.classList.add('bg-green-500');
+            }
+            showToast('MySQL reconnected', 'success');
+            break;
+
+          case 'reconnect_failed':
+            mysqlStatusSp.textContent = 'Connection lost';
+            mysqlRunBtn.disabled = true;
+            mysqlDisconnectBtn.disabled = true;
+            mysqlDisconnectBtn.classList.add('hidden');
+            mysqlConnectBtn.classList.remove('hidden');
+            if (mysqlStatusInd) {
+              mysqlStatusInd.classList.remove('bg-green-500', 'bg-amber-500');
+              mysqlStatusInd.classList.add('bg-red-500');
+            }
+            if (mysqlStatusSidebar) mysqlStatusSidebar.textContent = 'Connection lost';
+            if (mysqlStatusIndSidebar) {
+              mysqlStatusIndSidebar.classList.remove('bg-green-500', 'bg-amber-500');
+              mysqlStatusIndSidebar.classList.add('bg-red-500');
+            }
+            showToast('MySQL reconnection failed — please reconnect manually', 'error');
+            break;
+        }
+      });
+    }
   }
   

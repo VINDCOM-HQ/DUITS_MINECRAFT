@@ -40,8 +40,9 @@ public abstract class ServerHandshakePacketListenerImplMixin {
     // See the corresponding mixin on Forge side
     @Inject(method = "handleIntention", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/handshake/ClientIntentionPacket;intention()Lnet/minecraft/network/protocol/handshake/ClientIntent;"))
     private void netherdeck$setHostName(ClientIntentionPacket packet, CallbackInfo ci) {
-        // TODO
-        ((NetworkManagerBridge) this.connection).bridge$setHostname(packet.hostName() + ":" + packet.port());
+        var bridge = (NetworkManagerBridge) this.connection;
+        bridge.bridge$setHostname(packet.hostName() + ":" + packet.port());
+        bridge.bridge$setVanillaClient(!packet.hostName().contains("\0FML"));
     }
 
     @Inject(method = "beginLogin", cancellable = true, at = @At(value = "INVOKE", shift = At.Shift.AFTER, target = "Lnet/minecraft/network/Connection;setupOutboundProtocol(Lnet/minecraft/network/ProtocolInfo;)V"))

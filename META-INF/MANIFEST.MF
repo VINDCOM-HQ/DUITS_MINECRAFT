@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+MixinConnector: io.github.netherdeck.common.mod.NetherDeckConnector
+Implementation-Title: NetherDeck
+Implementation-Version: netherdeck-neoforge-1.21.1-1.0.0-SNAPSHOT+9be83d
+ 2
+Implementation-Vendor: DownUnderIT Solutions
+Implementation-Timestamp: 2026-03-07 11:52:41
+

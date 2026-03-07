@@ -106,7 +106,7 @@ public interface AbstractBootstrap {
             }
             String buildTime = attributes.getValue("Implementation-Timestamp");
             LogManager.getLogger("NetherDeck").info(NetherDeckLocale.getInstance().get("logo"),
-                    NetherDeckLocale.getInstance().get("release-name." + NetherDeckVersion.current().getReleaseName()), version, buildTime);
+                    version, buildTime);
         }
     }
 

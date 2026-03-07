@@ -1,6 +1,6 @@
 <script>
 	import { getStatus, loginAttemptsSummary } from '$lib/api.js';
-	import { setRcon, setMysql, getServerStatus, setServerStatus } from '$lib/stores/connections.svelte.js';
+	import { getServerStatus } from '$lib/stores/connections.svelte.js';
 	import StatusIndicator from '$lib/components/StatusIndicator.svelte';
 	import { page } from '$app/stores';
 
@@ -13,22 +13,7 @@
 			const result = await getStatus();
 			status = result;
 			errorMsg = '';
-
-			// Update shared connection stores from status API
-			if (result.server) {
-				setServerStatus(result.server.status || 'unknown');
-			}
-			if (result.rcon) {
-				setRcon({ connected: result.rcon.connected, host: result.rcon.host || '', port: result.rcon.port || 25575 });
-			}
-			if (result.mysql) {
-				setMysql({
-					connected: result.mysql.connected,
-					host: result.mysql.host || '',
-					port: result.mysql.port || 3306,
-					database: result.mysql.gameDb || ''
-				});
-			}
+			// Connection stores are hydrated by the root layout
 		} catch (err) {
 			errorMsg = err.message;
 		} finally {
@@ -95,17 +80,20 @@
 	const heroBorderColor = $derived(
 		serverState === 'running' ? 'border-emerald-500/50' :
 		serverState === 'stopped' ? 'border-rose-500/50' :
+		serverState === 'error' ? 'border-rose-500/50' :
 		serverState === 'starting' ? 'border-amber-500/50' : 'border-obsidian-500'
 	);
 
 	const heroStatusColor = $derived(
 		serverState === 'running' ? 'text-emerald-400' :
 		serverState === 'stopped' ? 'text-rose-400' :
+		serverState === 'error' ? 'text-rose-400' :
 		serverState === 'starting' ? 'text-amber-400' : 'text-obsidian-300'
 	);
 
 	const statusDotColor = $derived(
 		serverState === 'running' ? 'bg-emerald-500' :
+		serverState === 'error' ? 'bg-rose-500 animate-pulse' :
 		serverState === 'stopped' ? 'bg-rose-500' :
 		serverState === 'starting' ? 'bg-amber-500 animate-pulse' : 'bg-obsidian-500'
 	);
@@ -148,6 +136,7 @@
 	// Security: failed login attempts (admin only)
 	const isAdmin = $derived($page.data?.user?.role === 'admin');
 	let loginSecurity = $state(null);
+	let loginSecurityError = $state(false);
 
 	$effect(() => {
 		if (!isAdmin) return;
@@ -155,8 +144,9 @@
 		async function fetchSecurity() {
 			try {
 				loginSecurity = await loginAttemptsSummary();
+				loginSecurityError = false;
 			} catch {
-				// Non-critical — silently ignore
+				loginSecurityError = true;
 			}
 		}
 
@@ -193,6 +183,23 @@
 	{:else if errorMsg}
 		<div class="bg-rose-600/20 border border-rose-500/50 text-rose-300 px-4 py-3 rounded-lg mb-6">
 			Status unavailable: {errorMsg}
+		</div>
+	{/if}
+
+	<!-- Crash Alert Banner -->
+	{#if serverState === 'error'}
+		<div class="bg-rose-600/20 border border-rose-500/50 text-rose-300 px-4 py-3 rounded-lg mb-6 flex items-center justify-between gap-4">
+			<div class="flex items-center gap-3">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 shrink-0 text-rose-400">
+					<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+				</svg>
+				<span class="text-sm font-medium">Minecraft server has crashed or entered an error state.</span>
+			</div>
+			{#if isAdmin}
+				<a href="/server" class="shrink-0 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-sm rounded-lg transition-colors">
+					Restart Server
+				</a>
+			{/if}
 		</div>
 	{/if}
 
@@ -439,10 +446,16 @@
 		<div class="card">
 			<h3 class="text-sm font-medium text-obsidian-200 mb-4">Game Info</h3>
 			<div class="space-y-3 text-sm">
-				{#if query.software || query.version}
+				{#if query.software}
 					<div class="flex justify-between">
 						<span class="text-obsidian-300">Software</span>
-						<span class="text-obsidian-100">{query.software || '?'} {query.version || ''}</span>
+						<span class="text-obsidian-100">{query.software}</span>
+					</div>
+				{/if}
+				{#if query.version}
+					<div class="flex justify-between">
+						<span class="text-obsidian-300">Minecraft Version</span>
+						<span class="text-obsidian-100">{query.version}</span>
 					</div>
 				{/if}
 				{#if query.map || game.map}
@@ -454,7 +467,7 @@
 				{#if query.gameType || game.gameMode}
 					<div class="flex justify-between">
 						<span class="text-obsidian-300">Game Type</span>
-						<span class="text-obsidian-100">{query.available ? query.gameType : capitalize(game.gameMode)}</span>
+						<span class="text-obsidian-100">{query.gameType || capitalize(game.gameMode)}</span>
 					</div>
 				{/if}
 				{#if game.difficulty}
@@ -528,7 +541,9 @@
 					{/if}
 				</div>
 
-				{#if !loginSecurity}
+				{#if loginSecurityError}
+					<p class="text-xs text-rose-400">Unavailable — DB not ready</p>
+				{:else if !loginSecurity}
 					<p class="text-xs text-obsidian-400">Loading...</p>
 				{:else if loginSecurity.total24h === 0}
 					<div class="text-center py-4">

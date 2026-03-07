@@ -179,29 +179,29 @@ class MySQLClient extends EventEmitter {
    */
   _setupConnectionEvents() {
     if (!this.connection) return;
-    
+
     // Handle connection errors
     this.connection.on('error', (err) => {
       this.log('Connection error:', err.message);
       this.connected = false;
-      this.consecutiveErrors++;
-      
+
       // Emit the error event
       this.emit('error', err);
-      
-      // Auto-reconnect on connection errors
-      if (this.consecutiveErrors <= this.maxConsecutiveErrors) {
-        this._reconnect();
-      }
+
+      // Auto-reconnect on connection loss
+      this._reconnect();
     });
-    
-    // Handle connection closing
+
+    // Handle connection closing (server-initiated graceful close)
     this.connection.on('end', () => {
-      this.log('Connection ended');
+      this.log('Connection ended by server');
       this.connected = false;
       this._stopKeepAlive();
-      
+
       this.emit('end');
+
+      // Auto-reconnect on graceful close too
+      this._reconnect();
     });
   }
   
@@ -273,7 +273,8 @@ class MySQLClient extends EventEmitter {
   }
   
   /**
-   * Attempt to reconnect to the MySQL server
+   * Attempt to reconnect to the MySQL server with exponential backoff.
+   * Retries up to maxReconnectAttempts (default 5) before giving up.
    * @private
    */
   async _reconnect() {
@@ -281,54 +282,42 @@ class MySQLClient extends EventEmitter {
       this.log('Reconnect already in progress');
       return;
     }
-    
-    // Track reconnect attempts
-    this.reconnectAttempts++;
-    
-    if (this.reconnectAttempts > this.maxReconnectAttempts) {
-      this.log(`Maximum reconnect attempts (${this.maxReconnectAttempts}) exceeded`);
-      this.emit('reconnect_failed');
-      return;
-    }
-    
-    this.log(`Attempting to reconnect (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
+
     // Stop keepalive during reconnection
     this._stopKeepAlive();
-    
-    // Close any existing connection
+
+    // Close any existing connection before the retry loop
     if (this.connection) {
-      try {
-        await this.connection.end();
-      } catch (err) {
-        // Ignore errors during disconnect
-      }
+      try { await this.connection.end(); } catch { /* ignore */ }
       this.connection = null;
     }
-    
-    // Reset state
+
     this.connected = false;
-    
-    // Calculate backoff delay: 1s, 2s, 4s, 8s, 16s
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
-    
-    this.log(`Waiting ${delay}ms before reconnecting`);
-    
-    // Wait before reconnecting
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
-    try {
-      // Attempt to connect
-      await this.connect();
-      
-      this.log('Reconnection successful');
-      this.emit('reconnect');
-    } catch (err) {
-      this.log('Reconnection failed:', err.message);
-      
-      // Try again later
-      this._reconnect();
+
+    for (let attempt = 1; attempt <= this.maxReconnectAttempts; attempt++) {
+      // Calculate backoff delay: 2s, 4s, 8s, 16s, 30s (capped)
+      const delay = Math.min(2000 * Math.pow(2, attempt - 1), 30000);
+
+      this.log(`Reconnect attempt ${attempt}/${this.maxReconnectAttempts} in ${delay}ms`);
+      this.emit('reconnecting', { attempt, max: this.maxReconnectAttempts, delay });
+
+      await new Promise(resolve => setTimeout(resolve, delay));
+
+      try {
+        await this.connect();
+        this.reconnectAttempts = 0;
+        this.consecutiveErrors = 0;
+        this.log('Reconnection successful');
+        this.emit('reconnect');
+        return;
+      } catch (err) {
+        this.log(`Reconnect attempt ${attempt} failed: ${err.message}`);
+      }
     }
+
+    // All attempts exhausted
+    this.log(`All ${this.maxReconnectAttempts} reconnect attempts failed`);
+    this.emit('reconnect_failed');
   }
   
   /**

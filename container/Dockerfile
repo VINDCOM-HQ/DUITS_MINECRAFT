@@ -4,12 +4,10 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install wget/curl, then download and install Oracle JDK 25 LTS
+# Install OpenJDK 21 LTS (NetherDeck targets Java 21; max supported is Java 22)
 RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends wget curl ca-certificates && \
-    wget -O /tmp/jdk-25_linux-x64_bin.deb https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.deb && \
-    apt-get install -y /tmp/jdk-25_linux-x64_bin.deb && \
-    rm /tmp/jdk-25_linux-x64_bin.deb
+    apt-get install -y --no-install-recommends wget curl ca-certificates openjdk-21-jdk-headless && \
+    rm -rf /var/lib/apt/lists/*
 
 # Verify Java installation
 RUN java -version
@@ -55,10 +53,33 @@ RUN mkdir -p \
 
 # ---------- 3) Copy NetherDeck server jar ----------
 ARG LOADER=neoforge
-COPY ["NetherDeck Server/build/libs/", "/tmp/netherdeck-jars/"]
+# JAR_HASH is passed at build time to bust the Docker layer cache when the JAR changes
+ARG JAR_HASH=unknown
+COPY ["NetherDeck Server/bootstrap/build/libs/", "/tmp/netherdeck-jars/"]
 RUN cp /tmp/netherdeck-jars/netherdeck-${LOADER}-*.jar /minecraft/paper.jar \
   && chown minecraft:minecraft /minecraft/paper.jar \
   && rm -rf /tmp/netherdeck-jars
+
+# ---------- 3a) Bundle ViaVersion plugins for cross-version client support ----------
+RUN mkdir -p /minecraft/plugins
+COPY ["NetherDeck Server/libraries/via/", "/minecraft/plugins/"]
+RUN chown -R minecraft:minecraft /minecraft/plugins
+
+# ---------- 3b-pre) Seed default netherdeck.yml (world-map enabled by default) ----------
+COPY container/netherdeck.yml /minecraft/netherdeck.yml
+RUN chown minecraft:minecraft /minecraft/netherdeck.yml
+
+# ---------- 3b) Pre-install loader dependencies ----------
+# netherdeck.hypertention.cn (primary download mirror) is unreachable; we fetch
+# NeoForge installer and all installer.json library JARs from public Maven during build.
+# Named volume `mc_data` is seeded from image contents on first container start.
+WORKDIR /minecraft
+COPY container/neoforge-preinstall.sh /tmp/neoforge-preinstall.sh
+RUN sed -i 's/\r//' /tmp/neoforge-preinstall.sh && chmod +x /tmp/neoforge-preinstall.sh && \
+    if [ "$LOADER" = "neoforge" ]; then \
+      /tmp/neoforge-preinstall.sh; \
+    fi && \
+    rm -f /tmp/neoforge-preinstall.sh
 
 # ---------- 4) Copy configs & scripts ----------
 COPY container/smb.conf               /etc/samba/smb.conf.tmpl

@@ -10,21 +10,16 @@ node_modules
 web/.svelte-kit
 web/build
 
-# Gradle caches and intermediate build outputs — keep only the final jars
+# Gradle caches and intermediate build outputs — keep only the final bootstrap jars
 NetherDeck Server/.gradle
-NetherDeck Server/build/classes
-NetherDeck Server/build/generated
-NetherDeck Server/build/reports
-NetherDeck Server/build/resources
-NetherDeck Server/build/tmp
 NetherDeck Server/**/build/classes
 NetherDeck Server/**/build/generated
 NetherDeck Server/**/build/reports
 NetherDeck Server/**/build/resources
 NetherDeck Server/**/build/tmp
 NetherDeck Server/**/build/libs
-# Re-include the root libs (the final collected jars)
-!NetherDeck Server/build/libs
+# Re-include only the bootstrap output (the final runnable JARs)
+!NetherDeck Server/bootstrap/build/libs
 
 # Desktop app (Electron — not part of the container)
 desktop

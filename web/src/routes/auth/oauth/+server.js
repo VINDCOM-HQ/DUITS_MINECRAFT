@@ -13,7 +13,7 @@ export async function GET({ cookies }) {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: process.env.NODE_ENV === 'production',
+		secure: process.env.WEB_PORTAL_SECURE_COOKIES !== 'false',
 		maxAge: 600 // 10 minutes
 	});
 

@@ -1,6 +1,6 @@
 # NetherDeck Server Development
 
-NetherDeck Server is a hybrid NeoForge + Paper server fork based on Arclight, targeting Minecraft 1.21.1. It merges NeoForge mod support with Paper plugin support and Paper's performance optimizations.
+NetherDeck Server is a hybrid NeoForge + Paper server fork (forked from Arclight, fully rebranded) targeting Minecraft 1.21.1. It merges NeoForge mod support with Paper plugin support and Paper's performance optimizations.
 
 ## Build Prerequisites
 
@@ -134,20 +134,43 @@ private void redirectBar(SomeClass instance) {
 Server configuration lives in `netherdeck.yml`, loaded by `NetherDeckConfig.java`:
 
 ```
-netherdeck-common/src/main/java/io/github/netherdeck/NetherDeckConfig.java
+netherdeck-common/src/main/java/io/github/netherdeck/common/netherdeck/NetherDeckConfig.java
 ```
 
-The config file is generated on first run and read on server startup. It controls NetherDeck-specific behaviour including the world map feature.
+The config file is generated on first run and read on server startup. Changes require a server restart.
 
-### World Map Config Section
+### Full `netherdeck.yml` Schema
 
 ```yaml
+performance:
+  hopper-optimization: true           # Optimised hopper item transfer
+  fastutil-collections: true          # Use fastutil data structures
+  collision-optimization: true        # Optimised entity collision checks
+  entity-activation-improvements: true # Improved activation range logic
+  mob-spawn-optimization: true        # Reduced mob spawn overhead
+  chunk-tick-optimization: true       # Optimised chunk ticking
+  async-chunks: false                 # Async chunk loading (experimental)
+  lighting-improvements: false        # Async lighting engine (experimental)
+  per-player-mob-spawning: false      # Per-player mob spawn budgets
+  skip-activation-modded-entities: true # Skip activation range for modded entities
+
 world-map:
-  enabled: false          # Opt-in — must explicitly enable
-  http-port: 8100         # Map tile server port
-  render-distance: 100    # Chunk render radius
-  render-interval: 300    # Seconds between render cycles
+  enabled: false            # Opt-in (Docker default: true via ENABLE_WORLD_MAP)
+  http-port: 8100           # Map tile server port
+  http-bind: 127.0.0.1      # Bind address for map HTTP server
+  render-threads: 2         # Number of render threads
+  render-distance: 128      # Chunk render radius
+  update-interval: 30       # Seconds between render cycles
+  dimensions:
+    overworld: true          # Render overworld map
+    nether: true             # Render nether map
+    the-end: true            # Render end map
+
+network:
+  allow-vanilla-clients: auto   # auto | true | false — vanilla client compatibility
 ```
+
+See [world-map.md](../configuration/world-map.md) for detailed world map configuration.
 
 ## World Map Architecture
 
@@ -199,6 +222,51 @@ io.github.netherdeck.gradle.NetherDeckGradlePlugin
 ```
 
 The mod ID is `netherdeck`. Cache directory is `.gradle/netherdeck/`.
+
+## ViaVersion Support
+
+The `libraries/via/` directory contains vendored JARs:
+
+| Plugin | Version | Purpose |
+|--------|---------|---------|
+| ViaVersion | 5.7.2 | Cross-version protocol translation (older clients connect to 1.21.1) |
+| ViaBackwards | 5.7.2 | Extends ViaVersion with backwards-compatibility mappings |
+
+These are standard Bukkit/Paper plugins. In Docker, they are automatically copied to `/minecraft/plugins/` during the image build. For manual setups, place the JARs in your server's `plugins/` folder.
+
+## i18n / Localization
+
+Server log messages and the startup banner are localised via HOCON `.conf` files in:
+
+```
+i18n-config/src/main/resources/META-INF/i18n/
+```
+
+### Supported Locales
+
+| File | Language |
+|------|----------|
+| `en_us.conf` | English (default + fallback) |
+| `zh_cn.conf` | Simplified Chinese |
+| `fr_fr.conf` | French |
+| `es_es.conf` | Spanish |
+| `it_it.conf` | Italian |
+| `ko_kr.conf` | Korean |
+| `ru_ru.conf` | Russian |
+
+### How It Works
+
+- The locale system is loaded by `NetherDeckLocale` on startup.
+- Messages use Log4j/SLF4J `{}` placeholders (e.g., `"Registered {} new materials"`).
+- The startup banner (logo) is a HOCON array of strings joined with newlines, using Minecraft `\u00a7` colour codes (`\u00a7c` = red, `\u00a7a` = green).
+- The locale is configured via the `locale` key in `netherdeck.yml` (defaults to the JVM locale).
+
+### Adding a New Locale
+
+1. Copy `en_us.conf` to `<locale>.conf` (e.g., `ja_jp.conf`).
+2. Translate all string values (keep `{}` placeholders intact).
+3. The ASCII art banner should remain unchanged (it's the NetherDeck logo).
+4. Rebuild the `i18n-config` module.
 
 ## CI/CD
 

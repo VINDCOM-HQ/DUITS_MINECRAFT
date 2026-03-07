@@ -223,11 +223,12 @@ function createElectronAPI() {
       // MySQL via IPC or Agent
       mysqlConnect: createAgentFunction('POST', '/mysql/connect', null, null, 'mysql-connect'),
       mysqlDisconnect: createAgentFunction('POST', '/mysql/disconnect', null, null, 'mysql-disconnect'),
-      mysqlQuery: createAgentFunction('POST', '/mysql/query', 
+      mysqlQuery: createAgentFunction('POST', '/mysql/query',
         (sql) => ({ sql }),
         (data) => data.result,
         'mysql-query'
       ),
+      onMysqlEvent: (callback) => ipcRenderer.on('mysql-event', (_event, data) => callback(data)),
       
       // Agent settings via IPC
       getAgentSettings: () => ipcRenderer.invoke('config-getAgentSettings'),

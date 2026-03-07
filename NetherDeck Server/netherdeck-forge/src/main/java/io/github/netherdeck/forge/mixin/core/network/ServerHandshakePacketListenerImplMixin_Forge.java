@@ -3,6 +3,7 @@ package io.github.netherdeck.forge.mixin.core.network;
 import com.google.gson.Gson;
 import com.mojang.authlib.properties.Property;
 import io.github.netherdeck.common.mod.util.VelocitySupport;
+import io.github.netherdeck.common.netherdeck.VanillaCompatibility;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.handshake.ClientIntentionPacket;
 import net.minecraft.server.network.ServerHandshakePacketListenerImpl;
@@ -23,6 +24,11 @@ public abstract class ServerHandshakePacketListenerImplMixin_Forge {
     // Since forge is doing handleServerLogin we redirect it to add logic
     @Redirect(method = "handleIntention", at = @At(value = "INVOKE", target = "Lnet/minecraftforge/server/ServerLifecycleHooks;handleServerLogin(Lnet/minecraft/network/protocol/handshake/ClientIntentionPacket;Lnet/minecraft/network/Connection;)Z"))
     public boolean netherdeck$handleSpecialLogin(ClientIntentionPacket packet, Connection connection) {
+        // Allow vanilla clients through when configured — check hostname directly
+        // since the common mixin's bridge$setVanillaClient hasn't fired yet at this point
+        if (VanillaCompatibility.isVanillaAllowed() && !packet.hostName().contains("\0FML")) {
+            return true;
+        }
         String ip = packet.hostName();
         if (!VelocitySupport.isEnabled() && SpigotConfig.bungee) {
             String[] split = ip.split("\0");

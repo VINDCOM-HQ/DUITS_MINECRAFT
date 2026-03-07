@@ -55,8 +55,14 @@ id -u "$SMB_USER" &>/dev/null || adduser --disabled-password --gecos "" "$SMB_US
 printf '%s\n%s\n' "${SMB_PASSWORD}" "${SMB_PASSWORD}" | smbpasswd -a -s "$SMB_USER"
 
 # Generate smb.conf from template (idempotent - always regenerates from template)
-echo "[*] Generating SMB configuration for user: $SMB_USER"
-sed "s|%SMB_USER%|${SMB_USER}|g" /etc/samba/smb.conf.tmpl > /etc/samba/smb.conf
+# SMB_INTERFACES inherited from entrypoint.sh (set by EXPOSE_SMB env var)
+SMB_INTERFACES=${SMB_INTERFACES:-lo}
+SMB_BIND_ONLY=${SMB_BIND_ONLY:-yes}
+echo "[*] Generating SMB configuration for user: $SMB_USER (interfaces: $SMB_INTERFACES)"
+sed -e "s|%SMB_USER%|${SMB_USER}|g" \
+    -e "s|%SMB_INTERFACES%|${SMB_INTERFACES}|g" \
+    -e "s|%SMB_BIND_ONLY%|${SMB_BIND_ONLY}|g" \
+    /etc/samba/smb.conf.tmpl > /etc/samba/smb.conf
 
 # Ensure correct permissions on /minecraft directory
 echo "[*] Setting proper permissions on /minecraft directory"

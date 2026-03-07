@@ -1,194 +1,400 @@
+x-netherdeck-base: &netherdeck-base
+  build:
+    context: ..
+    dockerfile: container/Dockerfile
+    args:
+      JAR_HASH: ${JAR_HASH:-unknown}
+  networks:
+    - minecraft_network
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "nc", "-z", "localhost", "25565"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 120s
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "3"
+  deploy:
+    resources:
+      limits:
+        cpus: '4.0'
+        memory: 10G
+      reservations:
+        cpus: '2.0'
+        memory: 4G
+
+# Shared Minecraft server settings (same across all loaders).
+# Per-service credentials and feature flags are defined in each service below.
+x-mc-env: &mc-env
+  TZ: ${TZ:-UTC}
+  # MySQL — set USE_EXTERNAL_MYSQL=true to disable bundled mysqld and use an external host
+  USE_EXTERNAL_MYSQL: ${USE_EXTERNAL_MYSQL:-false}
+  MYSQL_USER: ${MYSQL_USER:-mcuser}
+  MYSQL_DATABASE: ${DATABASE_NAME:-minecraft}
+  MC_MYSQL_BIND: ${MC_MYSQL_BIND:-127.0.0.1}
+  EXPOSE_SQL: ${EXPOSE_SQL:-false}
+  # Samba
+  SMB_USER: ${SMB_USER:-mcadmin}
+  EXPOSE_SMB: ${EXPOSE_SMB:-false}
+  # Java memory
+  MC_MIN_MEMORY: ${MC_MIN_MEMORY:-2G}
+  MC_MAX_MEMORY: ${MC_MAX_MEMORY:-6G}
+  # Minecraft EULA
+  MC_EULA: ${MC_EULA:-}
+  # Server basics
+  MC_MOTD: ${MC_MOTD:-}
+  MC_SERVER_PORT: ${MC_SERVER_PORT:-}
+  MC_SERVER_IP: ${MC_SERVER_IP:-}
+  MC_MAX_PLAYERS: ${MC_MAX_PLAYERS:-}
+  MC_LEVEL_NAME: ${MC_LEVEL_NAME:-}
+  MC_LEVEL_SEED: ${MC_LEVEL_SEED:-}
+  MC_LEVEL_TYPE: ${MC_LEVEL_TYPE:-}
+  MC_GENERATOR_SETTINGS: ${MC_GENERATOR_SETTINGS:-}
+  # Gameplay
+  MC_GAMEMODE: ${MC_GAMEMODE:-}
+  MC_FORCE_GAMEMODE: ${MC_FORCE_GAMEMODE:-}
+  MC_DIFFICULTY: ${MC_DIFFICULTY:-}
+  MC_HARDCORE: ${MC_HARDCORE:-}
+  MC_PVP: ${MC_PVP:-}
+  MC_ALLOW_FLIGHT: ${MC_ALLOW_FLIGHT:-}
+  MC_ALLOW_NETHER: ${MC_ALLOW_NETHER:-}
+  # Spawn
+  MC_SPAWN_PROTECTION: ${MC_SPAWN_PROTECTION:-}
+  MC_SPAWN_NPCS: ${MC_SPAWN_NPCS:-}
+  MC_SPAWN_ANIMALS: ${MC_SPAWN_ANIMALS:-}
+  MC_SPAWN_MONSTERS: ${MC_SPAWN_MONSTERS:-}
+  # World
+  MC_VIEW_DISTANCE: ${MC_VIEW_DISTANCE:-}
+  MC_SIMULATION_DISTANCE: ${MC_SIMULATION_DISTANCE:-}
+  MC_MAX_WORLD_SIZE: ${MC_MAX_WORLD_SIZE:-}
+  MC_MAX_BUILD_HEIGHT: ${MC_MAX_BUILD_HEIGHT:-}
+  MC_GENERATE_STRUCTURES: ${MC_GENERATE_STRUCTURES:-}
+  # Security
+  MC_ONLINE_MODE: ${MC_ONLINE_MODE:-}
+  MC_WHITE_LIST: ${MC_WHITE_LIST:-}
+  MC_ENFORCE_WHITELIST: ${MC_ENFORCE_WHITELIST:-}
+  MC_ENFORCE_SECURE_PROFILE: ${MC_ENFORCE_SECURE_PROFILE:-}
+  MC_ENABLE_COMMAND_BLOCK: ${MC_ENABLE_COMMAND_BLOCK:-}
+  MC_OP_PERMISSION_LEVEL: ${MC_OP_PERMISSION_LEVEL:-}
+  MC_FUNCTION_PERMISSION_LEVEL: ${MC_FUNCTION_PERMISSION_LEVEL:-}
+  # RCON (port/enable shared; password is per-service)
+  MC_ENABLE_RCON: ${MC_ENABLE_RCON:-true}
+  MC_RCON_PORT: ${MC_RCON_PORT:-25575}
+  MC_BROADCAST_RCON_TO_OPS: ${MC_BROADCAST_RCON_TO_OPS:-}
+  # Query
+  MC_ENABLE_QUERY: ${MC_ENABLE_QUERY:-}
+  MC_QUERY_PORT: ${MC_QUERY_PORT:-}
+  # Performance
+  MC_MAX_TICK_TIME: ${MC_MAX_TICK_TIME:-}
+  MC_NETWORK_COMPRESSION_THRESHOLD: ${MC_NETWORK_COMPRESSION_THRESHOLD:-}
+  MC_RATE_LIMIT: ${MC_RATE_LIMIT:-}
+  MC_PLAYER_IDLE_TIMEOUT: ${MC_PLAYER_IDLE_TIMEOUT:-}
+  MC_ENTITY_BROADCAST_RANGE: ${MC_ENTITY_BROADCAST_RANGE:-}
+  MC_MAX_CHAINED_NEIGHBOR_UPDATES: ${MC_MAX_CHAINED_NEIGHBOR_UPDATES:-}
+  # Server behaviour
+  MC_PREVENT_PROXY_CONNECTIONS: ${MC_PREVENT_PROXY_CONNECTIONS:-}
+  MC_USE_NATIVE_TRANSPORT: ${MC_USE_NATIVE_TRANSPORT:-}
+  MC_SYNC_CHUNK_WRITES: ${MC_SYNC_CHUNK_WRITES:-}
+  MC_ENABLE_JMX_MONITORING: ${MC_ENABLE_JMX_MONITORING:-}
+  MC_BROADCAST_CONSOLE_TO_OPS: ${MC_BROADCAST_CONSOLE_TO_OPS:-}
+  MC_ENABLE_STATUS: ${MC_ENABLE_STATUS:-}
+  MC_HIDE_ONLINE_PLAYERS: ${MC_HIDE_ONLINE_PLAYERS:-}
+  MC_PAUSE_WHEN_EMPTY_SECONDS: ${MC_PAUSE_WHEN_EMPTY_SECONDS:-}
+  # Resource pack
+  MC_RESOURCE_PACK: ${MC_RESOURCE_PACK:-}
+  MC_RESOURCE_PACK_SHA1: ${MC_RESOURCE_PACK_SHA1:-}
+  MC_RESOURCE_PACK_ID: ${MC_RESOURCE_PACK_ID:-}
+  MC_REQUIRE_RESOURCE_PACK: ${MC_REQUIRE_RESOURCE_PACK:-}
+  MC_RESOURCE_PACK_PROMPT: ${MC_RESOURCE_PACK_PROMPT:-}
+  # Data packs
+  MC_INITIAL_ENABLED_PACKS: ${MC_INITIAL_ENABLED_PACKS:-}
+  MC_INITIAL_DISABLED_PACKS: ${MC_INITIAL_DISABLED_PACKS:-}
+  # Advanced
+  MC_ACCEPTS_TRANSFERS: ${MC_ACCEPTS_TRANSFERS:-}
+  MC_LOG_IPS: ${MC_LOG_IPS:-}
+  MC_DEBUG: ${MC_DEBUG:-}
+  MC_BUG_REPORT_LINK: ${MC_BUG_REPORT_LINK:-}
+  MC_REGION_FILE_COMPRESSION: ${MC_REGION_FILE_COMPRESSION:-}
+  MC_TEXT_FILTERING_CONFIG: ${MC_TEXT_FILTERING_CONFIG:-}
+  MC_TEXT_FILTERING_VERSION: ${MC_TEXT_FILTERING_VERSION:-}
+  # World map
+  ENABLE_WORLD_MAP: ${ENABLE_WORLD_MAP:-true}
+
 services:
-  paper-mc:
+
+  # ============================================================
+  # NeoForge
+  # ============================================================
+  netherdeck-neoforge:
+    <<: *netherdeck-base
     build:
       context: ..
       dockerfile: container/Dockerfile
-    image: vindcom/netherdeck:1.24.1
-    container_name: minecraft-server
-    networks:
-      - minecraft_network
+      args:
+        LOADER: neoforge
+    image: vindcom/netherdeck-neoforge:1.24.1
+    container_name: netherdeck-neoforge
     ports:
-      # Minecraft server ports
-      - "25565:25565/tcp"  # Game port
-      - "25575:25575/tcp"  # RCON - SECURITY: Only expose if needed, ensure strong MC_RCON_PASSWORD
-      - "25565:25565/udp"  # Query - SECURITY: Exposes server info to network scanners
-      # MySQL port - SECURITY: Consider firewall rules to restrict access to trusted IPs only
-      - "3306:3306/tcp"    # MySQL access
-      # Samba ports - SECURITY: Consider firewall rules to restrict access to trusted IPs only
-      - "445:445/tcp"      # SMB over TCP
-      - "139:139/tcp"      # NetBIOS session
-      - "137:137/udp"      # NetBIOS name
-      - "138:138/udp"      # NetBIOS datagram
-      # Agent relay port - only active when ENABLE_AGENT=true
-      - "${AGENT_PORT:-3500}:${AGENT_PORT:-3500}/tcp"
-      # Web portal port - only active when ENABLE_WEB_PORTAL=true
-      - "${WEB_PORTAL_PORT:-3000}:${WEB_PORTAL_PORT:-3000}/tcp"
+      - "${NEOFORGE_GAME_PORT:-25565}:25565/tcp"
+      - "${NEOFORGE_GAME_PORT:-25565}:25565/udp"
+      - "${NEOFORGE_RCON_PORT:-25575}:25575/tcp"
+      - "${MYSQL_HOST_IP:-127.0.0.1}:${NEOFORGE_MYSQL_PORT:-3306}:3306/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${NEOFORGE_SMB_445:-445}:445/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${NEOFORGE_SMB_139:-139}:139/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${NEOFORGE_SMB_137:-137}:137/udp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${NEOFORGE_SMB_138:-138}:138/udp"
+      - "${NEOFORGE_AGENT_PORT:-3500}:3500/tcp"
+      - "${NEOFORGE_WEB_PORT:-3000}:3000/tcp"
     volumes:
-      - mc_data:/minecraft
-      - mysql_data:/var/lib/mysql
-      - smb_logs:/var/log/samba
-      - supervisor_logs:/var/log/supervisor
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "25565"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 120s
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: '4.0'
-          memory: 10G
-        reservations:
-          cpus: '2.0'
-          memory: 4G
+      - mc_data_neoforge:/minecraft
+      - mysql_data_neoforge:/var/lib/mysql
+      - smb_logs_neoforge:/var/log/samba
+      - supervisor_logs_neoforge:/var/log/supervisor
     environment:
-      # Infrastructure
-      - TZ=${TZ:-UTC}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - SMB_USER=${SMB_USER}
-      - SMB_PASSWORD=${SMB_PASSWORD}
-      - MYSQL_DATABASE=${DATABASE_NAME}
-      - MC_MYSQL_BIND=${MC_MYSQL_BIND:-127.0.0.1}
-      # Java memory (passed to -Xms/-Xmx)
-      - MC_MIN_MEMORY=${MC_MIN_MEMORY:-2G}
-      - MC_MAX_MEMORY=${MC_MAX_MEMORY:-6G}
-      # Minecraft EULA (set to "true" to accept)
-      - MC_EULA=${MC_EULA:-}
-      # Server basics
-      - MC_MOTD=${MC_MOTD:-}
-      - MC_SERVER_PORT=${MC_SERVER_PORT:-}
-      - MC_SERVER_IP=${MC_SERVER_IP:-}
-      - MC_MAX_PLAYERS=${MC_MAX_PLAYERS:-}
-      - MC_LEVEL_NAME=${MC_LEVEL_NAME:-}
-      - MC_LEVEL_SEED=${MC_LEVEL_SEED:-}
-      - MC_LEVEL_TYPE=${MC_LEVEL_TYPE:-}
-      - MC_GENERATOR_SETTINGS=${MC_GENERATOR_SETTINGS:-}
-      # Gameplay settings
-      - MC_GAMEMODE=${MC_GAMEMODE:-}
-      - MC_FORCE_GAMEMODE=${MC_FORCE_GAMEMODE:-}
-      - MC_DIFFICULTY=${MC_DIFFICULTY:-}
-      - MC_HARDCORE=${MC_HARDCORE:-}
-      - MC_PVP=${MC_PVP:-}
-      - MC_ALLOW_FLIGHT=${MC_ALLOW_FLIGHT:-}
-      - MC_ALLOW_NETHER=${MC_ALLOW_NETHER:-}
-      # Spawn settings
-      - MC_SPAWN_PROTECTION=${MC_SPAWN_PROTECTION:-}
-      - MC_SPAWN_NPCS=${MC_SPAWN_NPCS:-}
-      - MC_SPAWN_ANIMALS=${MC_SPAWN_ANIMALS:-}
-      - MC_SPAWN_MONSTERS=${MC_SPAWN_MONSTERS:-}
-      # World settings
-      - MC_VIEW_DISTANCE=${MC_VIEW_DISTANCE:-}
-      - MC_SIMULATION_DISTANCE=${MC_SIMULATION_DISTANCE:-}
-      - MC_MAX_WORLD_SIZE=${MC_MAX_WORLD_SIZE:-}
-      - MC_MAX_BUILD_HEIGHT=${MC_MAX_BUILD_HEIGHT:-}
-      - MC_GENERATE_STRUCTURES=${MC_GENERATE_STRUCTURES:-}
-      # Security and access
-      - MC_ONLINE_MODE=${MC_ONLINE_MODE:-}
-      - MC_WHITE_LIST=${MC_WHITE_LIST:-}
-      - MC_ENFORCE_WHITELIST=${MC_ENFORCE_WHITELIST:-}
-      - MC_ENFORCE_SECURE_PROFILE=${MC_ENFORCE_SECURE_PROFILE:-}
-      - MC_ENABLE_COMMAND_BLOCK=${MC_ENABLE_COMMAND_BLOCK:-}
-      - MC_OP_PERMISSION_LEVEL=${MC_OP_PERMISSION_LEVEL:-}
-      - MC_FUNCTION_PERMISSION_LEVEL=${MC_FUNCTION_PERMISSION_LEVEL:-}
-      # RCON configuration
-      - MC_ENABLE_RCON=${MC_ENABLE_RCON:-}
-      - MC_RCON_PORT=${MC_RCON_PORT:-}
-      - MC_RCON_PASSWORD=${MC_RCON_PASSWORD:-}
-      - MC_BROADCAST_RCON_TO_OPS=${MC_BROADCAST_RCON_TO_OPS:-}
-      # Query configuration
-      - MC_ENABLE_QUERY=${MC_ENABLE_QUERY:-}
-      - MC_QUERY_PORT=${MC_QUERY_PORT:-}
-      # Performance settings
-      - MC_MAX_TICK_TIME=${MC_MAX_TICK_TIME:-}
-      - MC_NETWORK_COMPRESSION_THRESHOLD=${MC_NETWORK_COMPRESSION_THRESHOLD:-}
-      - MC_RATE_LIMIT=${MC_RATE_LIMIT:-}
-      - MC_PLAYER_IDLE_TIMEOUT=${MC_PLAYER_IDLE_TIMEOUT:-}
-      - MC_ENTITY_BROADCAST_RANGE=${MC_ENTITY_BROADCAST_RANGE:-}
-      - MC_MAX_CHAINED_NEIGHBOR_UPDATES=${MC_MAX_CHAINED_NEIGHBOR_UPDATES:-}
-      # Server behavior
-      - MC_PREVENT_PROXY_CONNECTIONS=${MC_PREVENT_PROXY_CONNECTIONS:-}
-      - MC_USE_NATIVE_TRANSPORT=${MC_USE_NATIVE_TRANSPORT:-}
-      - MC_SYNC_CHUNK_WRITES=${MC_SYNC_CHUNK_WRITES:-}
-      - MC_ENABLE_JMX_MONITORING=${MC_ENABLE_JMX_MONITORING:-}
-      - MC_BROADCAST_CONSOLE_TO_OPS=${MC_BROADCAST_CONSOLE_TO_OPS:-}
-      - MC_ENABLE_STATUS=${MC_ENABLE_STATUS:-}
-      - MC_HIDE_ONLINE_PLAYERS=${MC_HIDE_ONLINE_PLAYERS:-}
-      - MC_PAUSE_WHEN_EMPTY_SECONDS=${MC_PAUSE_WHEN_EMPTY_SECONDS:-}
-      # Resource pack
-      - MC_RESOURCE_PACK=${MC_RESOURCE_PACK:-}
-      - MC_RESOURCE_PACK_SHA1=${MC_RESOURCE_PACK_SHA1:-}
-      - MC_RESOURCE_PACK_ID=${MC_RESOURCE_PACK_ID:-}
-      - MC_REQUIRE_RESOURCE_PACK=${MC_REQUIRE_RESOURCE_PACK:-}
-      - MC_RESOURCE_PACK_PROMPT=${MC_RESOURCE_PACK_PROMPT:-}
-      # Data packs
-      - MC_INITIAL_ENABLED_PACKS=${MC_INITIAL_ENABLED_PACKS:-}
-      - MC_INITIAL_DISABLED_PACKS=${MC_INITIAL_DISABLED_PACKS:-}
-      # Advanced settings
-      - MC_ACCEPTS_TRANSFERS=${MC_ACCEPTS_TRANSFERS:-}
-      - MC_LOG_IPS=${MC_LOG_IPS:-}
-      - MC_DEBUG=${MC_DEBUG:-}
-      - MC_BUG_REPORT_LINK=${MC_BUG_REPORT_LINK:-}
-      - MC_REGION_FILE_COMPRESSION=${MC_REGION_FILE_COMPRESSION:-}
-      - MC_TEXT_FILTERING_CONFIG=${MC_TEXT_FILTERING_CONFIG:-}
-      - MC_TEXT_FILTERING_VERSION=${MC_TEXT_FILTERING_VERSION:-}
-      # Agent Relay Configuration
-      - ENABLE_AGENT=${ENABLE_AGENT:-false}
-      - AGENT_PORT=${AGENT_PORT:-3500}
-      - AGENT_API_KEY=${AGENT_API_KEY:-}
-      # Web Portal Configuration
-      - ENABLE_WEB_PORTAL=${ENABLE_WEB_PORTAL:-false}
-      - WEB_PORTAL_PORT=${WEB_PORTAL_PORT:-3000}
-      - WEB_PORTAL_SESSION_SECRET=${WEB_PORTAL_SESSION_SECRET:-}
-      # Portal Database (defaults to built-in MySQL)
-      - WEB_PORTAL_DB_HOST=${WEB_PORTAL_DB_HOST:-localhost}
-      - WEB_PORTAL_DB_PORT=${WEB_PORTAL_DB_PORT:-3306}
-      - WEB_PORTAL_DB_USER=${WEB_PORTAL_DB_USER:-netherdeck}
-      - WEB_PORTAL_DB_PASSWORD=${WEB_PORTAL_DB_PASSWORD:-}
-      - WEB_PORTAL_DB_NAME=${WEB_PORTAL_DB_NAME:-netherdeck}
-      # Portal Admin (break-glass credentials)
-      - WEB_PORTAL_ADMIN_USER=${WEB_PORTAL_ADMIN_USER:-admin}
-      - WEB_PORTAL_ADMIN_PASSWORD=${WEB_PORTAL_ADMIN_PASSWORD:-}
-      # Portal RCON (direct connection)
-      - WEB_PORTAL_RCON_HOST=${WEB_PORTAL_RCON_HOST:-localhost}
-      - WEB_PORTAL_RCON_PORT=${WEB_PORTAL_RCON_PORT:-25575}
-      - WEB_PORTAL_RCON_PASSWORD=${WEB_PORTAL_RCON_PASSWORD:-}
-      # Game Database Name (same MySQL instance, different database)
-      - WEB_PORTAL_GAME_DB_NAME=${WEB_PORTAL_GAME_DB_NAME:-}
-      # Portal Minecraft Files
-      - WEB_PORTAL_MC_DIR=${WEB_PORTAL_MC_DIR:-/minecraft}
-      # Portal Query Port (defaults to game port for query protocol)
-      - WEB_PORTAL_QUERY_PORT=${WEB_PORTAL_QUERY_PORT:-25565}
-      # OAuth / OIDC (optional)
-      - WEB_PORTAL_OAUTH_ENABLED=${WEB_PORTAL_OAUTH_ENABLED:-false}
-      - WEB_PORTAL_OAUTH_ISSUER_URL=${WEB_PORTAL_OAUTH_ISSUER_URL:-}
-      - WEB_PORTAL_OAUTH_CLIENT_ID=${WEB_PORTAL_OAUTH_CLIENT_ID:-}
-      - WEB_PORTAL_OAUTH_CLIENT_SECRET=${WEB_PORTAL_OAUTH_CLIENT_SECRET:-}
-      - WEB_PORTAL_OAUTH_SCOPES=${WEB_PORTAL_OAUTH_SCOPES:-openid profile email}
-      - WEB_PORTAL_OAUTH_CALLBACK_URL=${WEB_PORTAL_OAUTH_CALLBACK_URL:-}
-      # SAML 2.0 (optional)
-      - WEB_PORTAL_SAML_ENABLED=${WEB_PORTAL_SAML_ENABLED:-false}
-      - WEB_PORTAL_SAML_IDP_METADATA_URL=${WEB_PORTAL_SAML_IDP_METADATA_URL:-}
-      - WEB_PORTAL_SAML_ENTITY_ID=${WEB_PORTAL_SAML_ENTITY_ID:-}
-      - WEB_PORTAL_SAML_CALLBACK_URL=${WEB_PORTAL_SAML_CALLBACK_URL:-}
+      <<: *mc-env
+      # Credentials
+      MYSQL_PASSWORD: ${NEOFORGE_MYSQL_PASSWORD}
+      SMB_PASSWORD: ${NEOFORGE_SMB_PASSWORD}
+      MC_RCON_PASSWORD: ${NEOFORGE_RCON_PASSWORD}
+      # Agent relay
+      ENABLE_AGENT: ${NEOFORGE_ENABLE_AGENT:-false}
+      AGENT_PORT: 3500
+      AGENT_API_KEY: ${NEOFORGE_AGENT_API_KEY:-}
+      AGENT_ALLOW_CORS: ${NEOFORGE_AGENT_ALLOW_CORS:-false}
+      AGENT_LOG_FORMAT: ${NEOFORGE_AGENT_LOG_FORMAT:-combined}
+      AGENT_ENABLE_TLS: ${NEOFORGE_AGENT_ENABLE_TLS:-false}
+      AGENT_TLS_CERT: ${NEOFORGE_AGENT_TLS_CERT:-}
+      AGENT_TLS_KEY: ${NEOFORGE_AGENT_TLS_KEY:-}
+      AGENT_TLS_PASSPHRASE: ${NEOFORGE_AGENT_TLS_PASSPHRASE:-}
+      # Web portal
+      ENABLE_WEB_PORTAL: ${NEOFORGE_ENABLE_WEB_PORTAL:-false}
+      WEB_PORTAL_PORT: 3000
+      WEB_PORTAL_SESSION_SECRET: ${NEOFORGE_WEB_SESSION_SECRET:-}
+      WEB_PORTAL_SECURE_COOKIES: ${NEOFORGE_WEB_SECURE_COOKIES:-true}
+      # Portal database
+      WEB_PORTAL_DB_HOST: ${NEOFORGE_WEB_DB_HOST:-localhost}
+      WEB_PORTAL_DB_PORT: ${NEOFORGE_WEB_DB_PORT:-3306}
+      WEB_PORTAL_DB_USER: ${NEOFORGE_WEB_DB_USER:-netherdeck}
+      WEB_PORTAL_DB_PASSWORD: ${NEOFORGE_WEB_DB_PASSWORD:-}
+      WEB_PORTAL_DB_NAME: ${NEOFORGE_WEB_DB_NAME:-netherdeck}
+      WEB_PORTAL_GAME_DB_NAME: ${NEOFORGE_WEB_GAME_DB_NAME:-}
+      # Portal admin
+      WEB_PORTAL_ADMIN_USER: ${NEOFORGE_WEB_ADMIN_USER:-admin}
+      WEB_PORTAL_ADMIN_PASSWORD: ${NEOFORGE_WEB_ADMIN_PASSWORD:-}
+      # Portal RCON
+      WEB_PORTAL_RCON_HOST: localhost
+      WEB_PORTAL_RCON_PORT: 25575
+      WEB_PORTAL_RCON_PASSWORD: ${NEOFORGE_RCON_PASSWORD:-}
+      # Portal paths/ports
+      WEB_PORTAL_MC_DIR: /minecraft
+      WEB_PORTAL_QUERY_PORT: 25565
+      WEB_PORTAL_MAP_HOST: 127.0.0.1
+      WEB_PORTAL_MAP_PORT: 8100
+      # OAuth / OIDC
+      WEB_PORTAL_OAUTH_ENABLED: ${NEOFORGE_OAUTH_ENABLED:-false}
+      WEB_PORTAL_OAUTH_ISSUER_URL: ${NEOFORGE_OAUTH_ISSUER_URL:-}
+      WEB_PORTAL_OAUTH_CLIENT_ID: ${NEOFORGE_OAUTH_CLIENT_ID:-}
+      WEB_PORTAL_OAUTH_CLIENT_SECRET: ${NEOFORGE_OAUTH_CLIENT_SECRET:-}
+      WEB_PORTAL_OAUTH_SCOPES: ${NEOFORGE_OAUTH_SCOPES:-openid profile email}
+      WEB_PORTAL_OAUTH_CALLBACK_URL: ${NEOFORGE_OAUTH_CALLBACK_URL:-}
+      # SAML 2.0
+      WEB_PORTAL_SAML_ENABLED: ${NEOFORGE_SAML_ENABLED:-false}
+      WEB_PORTAL_SAML_IDP_METADATA_URL: ${NEOFORGE_SAML_IDP_METADATA_URL:-}
+      WEB_PORTAL_SAML_ENTITY_ID: ${NEOFORGE_SAML_ENTITY_ID:-}
+      WEB_PORTAL_SAML_CALLBACK_URL: ${NEOFORGE_SAML_CALLBACK_URL:-}
+
+  # ============================================================
+  # Forge
+  # ============================================================
+  netherdeck-forge:
+    <<: *netherdeck-base
+    build:
+      context: ..
+      dockerfile: container/Dockerfile
+      args:
+        LOADER: forge
+    image: vindcom/netherdeck-forge:1.24.1
+    container_name: netherdeck-forge
+    ports:
+      - "${FORGE_GAME_PORT:-25566}:25565/tcp"
+      - "${FORGE_GAME_PORT:-25566}:25565/udp"
+      - "${FORGE_RCON_PORT:-25576}:25575/tcp"
+      - "${MYSQL_HOST_IP:-127.0.0.1}:${FORGE_MYSQL_PORT:-3307}:3306/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${FORGE_SMB_445:-446}:445/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${FORGE_SMB_139:-140}:139/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${FORGE_SMB_137:-147}:137/udp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${FORGE_SMB_138:-148}:138/udp"
+      - "${FORGE_AGENT_PORT:-3501}:3500/tcp"
+      - "${FORGE_WEB_PORT:-3001}:3000/tcp"
+    volumes:
+      - mc_data_forge:/minecraft
+      - mysql_data_forge:/var/lib/mysql
+      - smb_logs_forge:/var/log/samba
+      - supervisor_logs_forge:/var/log/supervisor
+    environment:
+      <<: *mc-env
+      # Credentials
+      MYSQL_PASSWORD: ${FORGE_MYSQL_PASSWORD}
+      SMB_PASSWORD: ${FORGE_SMB_PASSWORD}
+      MC_RCON_PASSWORD: ${FORGE_RCON_PASSWORD}
+      # Agent relay
+      ENABLE_AGENT: ${FORGE_ENABLE_AGENT:-false}
+      AGENT_PORT: 3500
+      AGENT_API_KEY: ${FORGE_AGENT_API_KEY:-}
+      AGENT_ALLOW_CORS: ${FORGE_AGENT_ALLOW_CORS:-false}
+      AGENT_LOG_FORMAT: ${FORGE_AGENT_LOG_FORMAT:-combined}
+      AGENT_ENABLE_TLS: ${FORGE_AGENT_ENABLE_TLS:-false}
+      AGENT_TLS_CERT: ${FORGE_AGENT_TLS_CERT:-}
+      AGENT_TLS_KEY: ${FORGE_AGENT_TLS_KEY:-}
+      AGENT_TLS_PASSPHRASE: ${FORGE_AGENT_TLS_PASSPHRASE:-}
+      # Web portal
+      ENABLE_WEB_PORTAL: ${FORGE_ENABLE_WEB_PORTAL:-false}
+      WEB_PORTAL_PORT: 3000
+      WEB_PORTAL_SESSION_SECRET: ${FORGE_WEB_SESSION_SECRET:-}
+      WEB_PORTAL_SECURE_COOKIES: ${FORGE_WEB_SECURE_COOKIES:-true}
+      # Portal database
+      WEB_PORTAL_DB_HOST: ${FORGE_WEB_DB_HOST:-localhost}
+      WEB_PORTAL_DB_PORT: ${FORGE_WEB_DB_PORT:-3306}
+      WEB_PORTAL_DB_USER: ${FORGE_WEB_DB_USER:-netherdeck}
+      WEB_PORTAL_DB_PASSWORD: ${FORGE_WEB_DB_PASSWORD:-}
+      WEB_PORTAL_DB_NAME: ${FORGE_WEB_DB_NAME:-netherdeck}
+      WEB_PORTAL_GAME_DB_NAME: ${FORGE_WEB_GAME_DB_NAME:-}
+      # Portal admin
+      WEB_PORTAL_ADMIN_USER: ${FORGE_WEB_ADMIN_USER:-admin}
+      WEB_PORTAL_ADMIN_PASSWORD: ${FORGE_WEB_ADMIN_PASSWORD:-}
+      # Portal RCON
+      WEB_PORTAL_RCON_HOST: localhost
+      WEB_PORTAL_RCON_PORT: 25575
+      WEB_PORTAL_RCON_PASSWORD: ${FORGE_RCON_PASSWORD:-}
+      # Portal paths/ports
+      WEB_PORTAL_MC_DIR: /minecraft
+      WEB_PORTAL_QUERY_PORT: 25565
+      WEB_PORTAL_MAP_HOST: 127.0.0.1
+      WEB_PORTAL_MAP_PORT: 8100
+      # OAuth / OIDC
+      WEB_PORTAL_OAUTH_ENABLED: ${FORGE_OAUTH_ENABLED:-false}
+      WEB_PORTAL_OAUTH_ISSUER_URL: ${FORGE_OAUTH_ISSUER_URL:-}
+      WEB_PORTAL_OAUTH_CLIENT_ID: ${FORGE_OAUTH_CLIENT_ID:-}
+      WEB_PORTAL_OAUTH_CLIENT_SECRET: ${FORGE_OAUTH_CLIENT_SECRET:-}
+      WEB_PORTAL_OAUTH_SCOPES: ${FORGE_OAUTH_SCOPES:-openid profile email}
+      WEB_PORTAL_OAUTH_CALLBACK_URL: ${FORGE_OAUTH_CALLBACK_URL:-}
+      # SAML 2.0
+      WEB_PORTAL_SAML_ENABLED: ${FORGE_SAML_ENABLED:-false}
+      WEB_PORTAL_SAML_IDP_METADATA_URL: ${FORGE_SAML_IDP_METADATA_URL:-}
+      WEB_PORTAL_SAML_ENTITY_ID: ${FORGE_SAML_ENTITY_ID:-}
+      WEB_PORTAL_SAML_CALLBACK_URL: ${FORGE_SAML_CALLBACK_URL:-}
+
+  # ============================================================
+  # Fabric
+  # ============================================================
+  netherdeck-fabric:
+    <<: *netherdeck-base
+    build:
+      context: ..
+      dockerfile: container/Dockerfile
+      args:
+        LOADER: fabric
+    image: vindcom/netherdeck-fabric:1.24.1
+    container_name: netherdeck-fabric
+    ports:
+      - "${FABRIC_GAME_PORT:-25567}:25565/tcp"
+      - "${FABRIC_GAME_PORT:-25567}:25565/udp"
+      - "${FABRIC_RCON_PORT:-25577}:25575/tcp"
+      - "${MYSQL_HOST_IP:-127.0.0.1}:${FABRIC_MYSQL_PORT:-3308}:3306/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${FABRIC_SMB_445:-447}:445/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${FABRIC_SMB_139:-141}:139/tcp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${FABRIC_SMB_137:-157}:137/udp"
+      - "${SMB_HOST_IP:-127.0.0.1}:${FABRIC_SMB_138:-158}:138/udp"
+      - "${FABRIC_AGENT_PORT:-3502}:3500/tcp"
+      - "${FABRIC_WEB_PORT:-3002}:3000/tcp"
+    volumes:
+      - mc_data_fabric:/minecraft
+      - mysql_data_fabric:/var/lib/mysql
+      - smb_logs_fabric:/var/log/samba
+      - supervisor_logs_fabric:/var/log/supervisor
+    environment:
+      <<: *mc-env
+      # Credentials
+      MYSQL_PASSWORD: ${FABRIC_MYSQL_PASSWORD}
+      SMB_PASSWORD: ${FABRIC_SMB_PASSWORD}
+      MC_RCON_PASSWORD: ${FABRIC_RCON_PASSWORD}
+      # Agent relay
+      ENABLE_AGENT: ${FABRIC_ENABLE_AGENT:-false}
+      AGENT_PORT: 3500
+      AGENT_API_KEY: ${FABRIC_AGENT_API_KEY:-}
+      AGENT_ALLOW_CORS: ${FABRIC_AGENT_ALLOW_CORS:-false}
+      AGENT_LOG_FORMAT: ${FABRIC_AGENT_LOG_FORMAT:-combined}
+      AGENT_ENABLE_TLS: ${FABRIC_AGENT_ENABLE_TLS:-false}
+      AGENT_TLS_CERT: ${FABRIC_AGENT_TLS_CERT:-}
+      AGENT_TLS_KEY: ${FABRIC_AGENT_TLS_KEY:-}
+      AGENT_TLS_PASSPHRASE: ${FABRIC_AGENT_TLS_PASSPHRASE:-}
+      # Web portal
+      ENABLE_WEB_PORTAL: ${FABRIC_ENABLE_WEB_PORTAL:-false}
+      WEB_PORTAL_PORT: 3000
+      WEB_PORTAL_SESSION_SECRET: ${FABRIC_WEB_SESSION_SECRET:-}
+      WEB_PORTAL_SECURE_COOKIES: ${FABRIC_WEB_SECURE_COOKIES:-true}
+      # Portal database
+      WEB_PORTAL_DB_HOST: ${FABRIC_WEB_DB_HOST:-localhost}
+      WEB_PORTAL_DB_PORT: ${FABRIC_WEB_DB_PORT:-3306}
+      WEB_PORTAL_DB_USER: ${FABRIC_WEB_DB_USER:-netherdeck}
+      WEB_PORTAL_DB_PASSWORD: ${FABRIC_WEB_DB_PASSWORD:-}
+      WEB_PORTAL_DB_NAME: ${FABRIC_WEB_DB_NAME:-netherdeck}
+      WEB_PORTAL_GAME_DB_NAME: ${FABRIC_WEB_GAME_DB_NAME:-}
+      # Portal admin
+      WEB_PORTAL_ADMIN_USER: ${FABRIC_WEB_ADMIN_USER:-admin}
+      WEB_PORTAL_ADMIN_PASSWORD: ${FABRIC_WEB_ADMIN_PASSWORD:-}
+      # Portal RCON
+      WEB_PORTAL_RCON_HOST: localhost
+      WEB_PORTAL_RCON_PORT: 25575
+      WEB_PORTAL_RCON_PASSWORD: ${FABRIC_RCON_PASSWORD:-}
+      # Portal paths/ports
+      WEB_PORTAL_MC_DIR: /minecraft
+      WEB_PORTAL_QUERY_PORT: 25565
+      WEB_PORTAL_MAP_HOST: 127.0.0.1
+      WEB_PORTAL_MAP_PORT: 8100
+      # OAuth / OIDC
+      WEB_PORTAL_OAUTH_ENABLED: ${FABRIC_OAUTH_ENABLED:-false}
+      WEB_PORTAL_OAUTH_ISSUER_URL: ${FABRIC_OAUTH_ISSUER_URL:-}
+      WEB_PORTAL_OAUTH_CLIENT_ID: ${FABRIC_OAUTH_CLIENT_ID:-}
+      WEB_PORTAL_OAUTH_CLIENT_SECRET: ${FABRIC_OAUTH_CLIENT_SECRET:-}
+      WEB_PORTAL_OAUTH_SCOPES: ${FABRIC_OAUTH_SCOPES:-openid profile email}
+      WEB_PORTAL_OAUTH_CALLBACK_URL: ${FABRIC_OAUTH_CALLBACK_URL:-}
+      # SAML 2.0
+      WEB_PORTAL_SAML_ENABLED: ${FABRIC_SAML_ENABLED:-false}
+      WEB_PORTAL_SAML_IDP_METADATA_URL: ${FABRIC_SAML_IDP_METADATA_URL:-}
+      WEB_PORTAL_SAML_ENTITY_ID: ${FABRIC_SAML_ENTITY_ID:-}
+      WEB_PORTAL_SAML_CALLBACK_URL: ${FABRIC_SAML_CALLBACK_URL:-}
 
 networks:
   minecraft_network:
     driver: bridge
 
 volumes:
-  mc_data:
+  mc_data_neoforge:
     driver: local
-  mysql_data:
+  mysql_data_neoforge:
     driver: local
-  smb_logs:
+  smb_logs_neoforge:
     driver: local
-  supervisor_logs:
+  supervisor_logs_neoforge:
+    driver: local
+  mc_data_forge:
+    driver: local
+  mysql_data_forge:
+    driver: local
+  smb_logs_forge:
+    driver: local
+  supervisor_logs_forge:
+    driver: local
+  mc_data_fabric:
+    driver: local
+  mysql_data_fabric:
+    driver: local
+  smb_logs_fabric:
+    driver: local
+  supervisor_logs_fabric:
     driver: local

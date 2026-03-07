@@ -41,6 +41,23 @@ public final class NetherDeckConfig {
     private final boolean worldMapNether;
     private final boolean worldMapTheEnd;
 
+    // World Map — BlueMap render quality
+    private final String worldMapRenderQuality;
+    private final boolean worldMapCaveDetection;
+    private final int worldMapCaveDetectionY;
+
+    // World Map — Extended features
+    private final boolean trailsEnabled;
+    private final int trailSampleInterval;
+    private final int trailRetentionHours;
+    private final boolean deathMarkersEnabled;
+    private final boolean landClaimsEnabled;
+    private final boolean heatmapEnabled;
+    private final int heatmapSampleInterval;
+
+    // Network
+    private final String allowVanillaClients;
+
     private NetherDeckConfig(
             boolean hopperOptimization,
             boolean fastutilCollections,
@@ -60,7 +77,18 @@ public final class NetherDeckConfig {
             int worldMapUpdateInterval,
             boolean worldMapOverworld,
             boolean worldMapNether,
-            boolean worldMapTheEnd
+            boolean worldMapTheEnd,
+            String worldMapRenderQuality,
+            boolean worldMapCaveDetection,
+            int worldMapCaveDetectionY,
+            boolean trailsEnabled,
+            int trailSampleInterval,
+            int trailRetentionHours,
+            boolean deathMarkersEnabled,
+            boolean landClaimsEnabled,
+            boolean heatmapEnabled,
+            int heatmapSampleInterval,
+            String allowVanillaClients
     ) {
         this.hopperOptimization = hopperOptimization;
         this.fastutilCollections = fastutilCollections;
@@ -81,6 +109,17 @@ public final class NetherDeckConfig {
         this.worldMapOverworld = worldMapOverworld;
         this.worldMapNether = worldMapNether;
         this.worldMapTheEnd = worldMapTheEnd;
+        this.worldMapRenderQuality = worldMapRenderQuality;
+        this.worldMapCaveDetection = worldMapCaveDetection;
+        this.worldMapCaveDetectionY = worldMapCaveDetectionY;
+        this.trailsEnabled = trailsEnabled;
+        this.trailSampleInterval = trailSampleInterval;
+        this.trailRetentionHours = trailRetentionHours;
+        this.deathMarkersEnabled = deathMarkersEnabled;
+        this.landClaimsEnabled = landClaimsEnabled;
+        this.heatmapEnabled = heatmapEnabled;
+        this.heatmapSampleInterval = heatmapSampleInterval;
+        this.allowVanillaClients = allowVanillaClients;
     }
 
     public static NetherDeckConfig load() {
@@ -125,6 +164,12 @@ public final class NetherDeckConfig {
             var worldMap = (Map<String, Object>) root.getOrDefault("world-map", Map.of());
             @SuppressWarnings("unchecked")
             var dimensions = (Map<String, Object>) ((worldMap != null ? worldMap : Map.of())).getOrDefault("dimensions", Map.of());
+            @SuppressWarnings("unchecked")
+            var trails = (Map<String, Object>) ((worldMap != null ? worldMap : Map.of())).getOrDefault("player-trails", Map.of());
+            @SuppressWarnings("unchecked")
+            var heatmapCfg = (Map<String, Object>) ((worldMap != null ? worldMap : Map.of())).getOrDefault("entity-heatmap", Map.of());
+            @SuppressWarnings("unchecked")
+            var network = (Map<String, Object>) root.getOrDefault("network", Map.of());
             return new NetherDeckConfig(
                     getBool(perf, "hopper-optimization", true),
                     getBool(perf, "fastutil-collections", true),
@@ -144,7 +189,18 @@ public final class NetherDeckConfig {
                     getInt(worldMap, "update-interval", 30),
                     getBool(dimensions, "overworld", true),
                     getBool(dimensions, "nether", true),
-                    getBool(dimensions, "the-end", true)
+                    getBool(dimensions, "the-end", true),
+                    getString(worldMap, "render-quality", "HIGH"),
+                    getBool(worldMap, "cave-detection", true),
+                    getInt(worldMap, "cave-detection-y", 55),
+                    getBool(trails, "enabled", true),
+                    getInt(trails, "sample-interval", 5),
+                    getInt(trails, "retention-hours", 24),
+                    getBool(worldMap, "death-markers", true),
+                    getBool(worldMap, "land-claims", true),
+                    getBool(heatmapCfg, "enabled", true),
+                    getInt(heatmapCfg, "sample-interval", 10),
+                    getString(network, "allow-vanilla-clients", "auto")
             );
         } catch (IOException e) {
             System.err.println("[NetherDeck] Failed to read netherdeck.yml, using defaults: " + e.getMessage());
@@ -154,25 +210,36 @@ public final class NetherDeckConfig {
 
     private static NetherDeckConfig createDefaults() {
         return new NetherDeckConfig(
-                true,   // hopper-optimization
-                true,   // fastutil-collections
-                true,   // collision-optimization
-                true,   // entity-activation-improvements
-                true,   // mob-spawn-optimization
-                true,   // chunk-tick-optimization
-                false,  // async-chunks (disabled - mod compat risk)
-                false,  // lighting-improvements (disabled)
-                false,  // per-player-mob-spawning (disabled)
-                true,   // skip-activation-modded-entities (safety valve)
-                false,  // world-map enabled (opt-in)
-                8100,   // world-map http-port
+                true,        // hopper-optimization
+                true,        // fastutil-collections
+                true,        // collision-optimization
+                true,        // entity-activation-improvements
+                true,        // mob-spawn-optimization
+                true,        // chunk-tick-optimization
+                false,       // async-chunks (disabled - mod compat risk)
+                false,       // lighting-improvements (disabled)
+                false,       // per-player-mob-spawning (disabled)
+                true,        // skip-activation-modded-entities (safety valve)
+                false,       // world-map enabled (opt-in)
+                8100,        // world-map http-port
                 "127.0.0.1", // world-map http-bind
-                2,      // world-map render-threads
-                128,    // world-map render-distance (chunk radius)
-                30,     // world-map update-interval (seconds)
-                true,   // world-map dimensions.overworld
-                true,   // world-map dimensions.nether
-                true    // world-map dimensions.the-end
+                2,           // world-map render-threads
+                128,         // world-map render-distance (chunk radius)
+                30,          // world-map update-interval (seconds)
+                true,        // world-map dimensions.overworld
+                true,        // world-map dimensions.nether
+                true,        // world-map dimensions.the-end
+                "HIGH",      // world-map render-quality
+                true,        // world-map cave-detection
+                55,          // world-map cave-detection-y
+                true,        // player-trails enabled
+                5,           // player-trails sample-interval (seconds)
+                24,          // player-trails retention-hours
+                true,        // death-markers enabled
+                true,        // land-claims enabled
+                true,        // entity-heatmap enabled
+                10,          // entity-heatmap sample-interval (seconds)
+                "auto"       // network.allow-vanilla-clients (auto/always/never)
         );
     }
 
@@ -201,15 +268,33 @@ public final class NetherDeckConfig {
         worldMap.put("render-threads", config.worldMapRenderThreads);
         worldMap.put("render-distance", config.worldMapRenderDistance);
         worldMap.put("update-interval", config.worldMapUpdateInterval);
+        worldMap.put("render-quality", config.worldMapRenderQuality);
+        worldMap.put("cave-detection", config.worldMapCaveDetection);
+        worldMap.put("cave-detection-y", config.worldMapCaveDetectionY);
         var dims = new LinkedHashMap<String, Object>();
         dims.put("overworld", config.worldMapOverworld);
         dims.put("nether", config.worldMapNether);
         dims.put("the-end", config.worldMapTheEnd);
         worldMap.put("dimensions", dims);
+        var trails = new LinkedHashMap<String, Object>();
+        trails.put("enabled", config.trailsEnabled);
+        trails.put("sample-interval", config.trailSampleInterval);
+        trails.put("retention-hours", config.trailRetentionHours);
+        worldMap.put("player-trails", trails);
+        worldMap.put("death-markers", config.deathMarkersEnabled);
+        worldMap.put("land-claims", config.landClaimsEnabled);
+        var heatmap = new LinkedHashMap<String, Object>();
+        heatmap.put("enabled", config.heatmapEnabled);
+        heatmap.put("sample-interval", config.heatmapSampleInterval);
+        worldMap.put("entity-heatmap", heatmap);
+
+        var network = new LinkedHashMap<String, Object>();
+        network.put("allow-vanilla-clients", config.allowVanillaClients);
 
         var root = new LinkedHashMap<String, Object>();
         root.put("performance", perf);
         root.put("world-map", worldMap);
+        root.put("network", network);
 
         var yaml = new Yaml(dumperOptions);
         var header = """
@@ -218,6 +303,7 @@ public final class NetherDeckConfig {
                 #
                 # performance: toggles for optimization modules (disable if mod compat issues)
                 # world-map: built-in 3D world map (powered by BlueMap Core)
+                # network: client connection settings (vanilla client compatibility)
                 # Changes require a server restart.
 
                 """;
@@ -330,5 +416,55 @@ public final class NetherDeckConfig {
 
     public boolean isWorldMapTheEnd() {
         return worldMapTheEnd;
+    }
+
+    // Network getters
+
+    public String getAllowVanillaClients() {
+        return allowVanillaClients;
+    }
+
+    // World Map — BlueMap render quality getters
+
+    public String getWorldMapRenderQuality() {
+        return worldMapRenderQuality;
+    }
+
+    public boolean isWorldMapCaveDetection() {
+        return worldMapCaveDetection;
+    }
+
+    public int getWorldMapCaveDetectionY() {
+        return worldMapCaveDetectionY;
+    }
+
+    // Extended feature getters
+
+    public boolean isTrailsEnabled() {
+        return trailsEnabled;
+    }
+
+    public int getTrailSampleInterval() {
+        return trailSampleInterval;
+    }
+
+    public int getTrailRetentionHours() {
+        return trailRetentionHours;
+    }
+
+    public boolean isDeathMarkersEnabled() {
+        return deathMarkersEnabled;
+    }
+
+    public boolean isLandClaimsEnabled() {
+        return landClaimsEnabled;
+    }
+
+    public boolean isHeatmapEnabled() {
+        return heatmapEnabled;
+    }
+
+    public int getHeatmapSampleInterval() {
+        return heatmapSampleInterval;
     }
 }

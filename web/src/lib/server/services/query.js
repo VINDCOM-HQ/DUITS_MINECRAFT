@@ -170,6 +170,7 @@ export default class QueryClient {
       motd: data.hostname,
       version: data.version,
       software: plugins.shift() || '',
+      gameType: data.gametype || '',
       plugins,
       map: data.map,
       players: { online: parseInt(data.numplayers, 10), max: parseInt(data.maxplayers, 10), list: players },

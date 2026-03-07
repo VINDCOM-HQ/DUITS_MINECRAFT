@@ -14,12 +14,14 @@ function baseUrl() {
 /**
  * Fetch raw data from the Java map HTTP server.
  * @param {string} path - URL path (e.g. "/tiles/overworld/0/0.png")
+ * @param {RequestInit} [options] - optional fetch options (method, body, headers)
  * @returns {Promise<Response>}
  */
-export async function fetchFromMapServer(path) {
+export async function fetchFromMapServer(path, options = {}) {
 	const url = `${baseUrl()}${path}`;
 	const response = await fetch(url, {
-		headers: { 'Accept': '*/*' }
+		headers: { 'Accept': '*/*', ...options.headers },
+		...options
 	});
 	return response;
 }
@@ -71,4 +73,48 @@ export function getConnectionInfo() {
 		host: MAP_HOST,
 		port: MAP_PORT
 	};
+}
+
+/**
+ * Get player trail points.
+ * @param {string} [world]
+ * @param {string} [uuid]
+ * @param {number} [hours]
+ */
+export async function getTrails(world, uuid, hours = 24) {
+	const params = new URLSearchParams();
+	if (world) params.set('world', world);
+	if (uuid) params.set('uuid', uuid);
+	params.set('hours', String(hours));
+	return fetchJson(`/live/trails?${params}`);
+}
+
+/**
+ * Get death and respawn markers.
+ * @param {string} [world]
+ */
+export async function getMarkers(world) {
+	const params = new URLSearchParams();
+	if (world) params.set('world', world);
+	return fetchJson(`/live/markers?${params}`);
+}
+
+/**
+ * Get land claim regions.
+ * @param {string} [world]
+ */
+export async function getRegions(world) {
+	const params = new URLSearchParams();
+	if (world) params.set('world', world);
+	return fetchJson(`/live/regions?${params}`);
+}
+
+/**
+ * Get entity heatmap snapshot.
+ * @param {string} [world]
+ */
+export async function getHeatmap(world) {
+	const params = new URLSearchParams();
+	if (world) params.set('world', world);
+	return fetchJson(`/live/heatmap?${params}`);
 }

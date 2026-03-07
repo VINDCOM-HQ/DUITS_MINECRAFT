@@ -3,6 +3,9 @@
 	import { getRcon, getServerStatus, setServerStatus } from '$lib/stores/connections.svelte.js';
 	import { error as toastError, success as toastSuccess } from '$lib/stores/toast.svelte.js';
 	import Modal from '$lib/components/Modal.svelte';
+	import { page } from '$app/stores';
+
+	const isAdmin = $derived($page.data?.user?.role === 'admin');
 
 	let bannedPlayers = $state([]);
 	let bannedIPs = $state([]);
@@ -49,6 +52,7 @@
 	}
 
 	async function doServerControl(action) {
+		if (!isAdmin) return;
 		controlLoading = true;
 		try {
 			await serverControl(action);
@@ -75,12 +79,23 @@
 		confirmAction = null;
 	}
 
+	function parseBanlist(res) {
+		if (!res) return [];
+		// Match header: "There are N ban(s):" or "There are N/M bans:" (Paper)
+		const match = res.match(/There are \d+(?:\/\d+)? ban(?:\(s\)|s):([\s\S]*)/);
+		if (!match) return [];
+		// Entries may be comma-separated, newline-separated, or both
+		return match[1]
+			.split(/[,\n]+/)
+			.map((entry) => entry.trim())
+			.filter(Boolean);
+	}
+
 	async function fetchBannedPlayers() {
 		loadingBans = true;
 		const res = await runCmd('banlist players');
 		if (res !== null) {
-			const match = res.match(/There are \d+ ban\(s\):(.*)/);
-			bannedPlayers = match ? match[1].split(',').map((n) => n.trim()).filter(Boolean) : [];
+			bannedPlayers = parseBanlist(res);
 		}
 		loadingBans = false;
 	}
@@ -89,8 +104,7 @@
 		loadingIPs = true;
 		const res = await runCmd('banlist ips');
 		if (res !== null) {
-			const match = res.match(/There are \d+ ban\(s\):(.*)/);
-			bannedIPs = match ? match[1].split(',').map((n) => n.trim()).filter(Boolean) : [];
+			bannedIPs = parseBanlist(res);
 		}
 		loadingIPs = false;
 	}
@@ -138,6 +152,7 @@
 	const statusColor = $derived(
 		getServerStatus() === 'running' ? 'text-emerald-500' :
 		getServerStatus() === 'stopped' ? 'text-rose-500' :
+		getServerStatus() === 'error' ? 'text-rose-500' :
 		getServerStatus() === 'starting' ? 'text-amber-500' : 'text-obsidian-200'
 	);
 
@@ -155,7 +170,7 @@
 		<h2 class="text-sm font-medium text-obsidian-200 mb-4">Minecraft Server Process</h2>
 		<div class="flex items-center gap-4 mb-4">
 			<div class="flex items-center gap-2">
-				<div class="w-3 h-3 rounded-full {getServerStatus() === 'running' ? 'bg-emerald-500' : getServerStatus() === 'stopped' ? 'bg-rose-500' : getServerStatus() === 'starting' ? 'bg-amber-500 animate-pulse' : 'bg-gray-400'}"></div>
+				<div class="w-3 h-3 rounded-full {getServerStatus() === 'running' ? 'bg-emerald-500' : getServerStatus() === 'error' ? 'bg-rose-500 animate-pulse' : getServerStatus() === 'stopped' ? 'bg-rose-500' : getServerStatus() === 'starting' ? 'bg-amber-500 animate-pulse' : 'bg-gray-400'}"></div>
 				<span class="text-lg font-semibold {statusColor}">{statusLabel}</span>
 			</div>
 			{#if serverUptime}
@@ -165,39 +180,50 @@
 				<span class="text-sm text-obsidian-300">PID: {serverPid}</span>
 			{/if}
 		</div>
-		<div class="flex gap-2">
-			{#if getServerStatus() === 'stopped'}
-				<button
-					onclick={() => doServerControl('start')}
-					disabled={controlLoading}
-					class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-sm rounded-lg transition-colors"
-				>
-					{controlLoading ? 'Starting...' : 'Start Server'}
-				</button>
-			{:else if getServerStatus() === 'running'}
-				<button
-					onclick={() => showConfirmAction('stop')}
-					disabled={controlLoading}
-					class="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-sm rounded-lg transition-colors"
-				>
-					Stop Server
-				</button>
-				<button
-					onclick={() => showConfirmAction('restart')}
-					disabled={controlLoading}
-					class="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-sm rounded-lg transition-colors"
-				>
-					Restart Server
-				</button>
-			{:else}
-				<button
-					onclick={refreshServerStatus}
-					class="px-4 py-2 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-sm rounded-lg transition-colors"
-				>
-					Refresh Status
-				</button>
-			{/if}
-		</div>
+		{#if isAdmin}
+			<div class="flex gap-2">
+				{#if getServerStatus() === 'stopped' || getServerStatus() === 'error' || getServerStatus() === 'unknown'}
+					<button
+						onclick={() => doServerControl('start')}
+						disabled={controlLoading}
+						class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-sm rounded-lg transition-colors"
+					>
+						{controlLoading ? 'Starting...' : 'Start Server'}
+					</button>
+					<button
+						onclick={refreshServerStatus}
+						class="px-4 py-2 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-sm rounded-lg transition-colors"
+					>
+						Refresh Status
+					</button>
+				{:else if getServerStatus() === 'running'}
+					<button
+						onclick={() => showConfirmAction('stop')}
+						disabled={controlLoading}
+						class="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-sm rounded-lg transition-colors"
+					>
+						Stop Server
+					</button>
+					<button
+						onclick={() => showConfirmAction('restart')}
+						disabled={controlLoading}
+						class="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-obsidian-700 disabled:text-obsidian-300 text-white text-sm rounded-lg transition-colors"
+					>
+						Restart Server
+					</button>
+				{:else}
+					<!-- starting state — just show refresh -->
+					<button
+						onclick={refreshServerStatus}
+						class="px-4 py-2 bg-obsidian-700 hover:bg-obsidian-600 text-obsidian-200 text-sm rounded-lg transition-colors"
+					>
+						Refresh Status
+					</button>
+				{/if}
+			</div>
+		{:else}
+			<p class="text-sm text-obsidian-300 italic">Admin access required to control the server process.</p>
+		{/if}
 	</div>
 
 	{#if !getRcon().connected}

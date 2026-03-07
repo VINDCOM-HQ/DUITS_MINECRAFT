@@ -52,10 +52,34 @@ set_property() {
 }
 
 # 1) Environment variables
+# USE_EXTERNAL_MYSQL=true disables the bundled mysqld and skips local DB init.
+# Set WEB_PORTAL_DB_HOST to the external MySQL host when enabled.
+USE_EXTERNAL_MYSQL=${USE_EXTERNAL_MYSQL:-false}
+
 MYSQL_USER=${MYSQL_USER:-mcuser}
 MYSQL_PASSWORD=${MYSQL_PASSWORD:-$(openssl rand -base64 32)}
 MYSQL_DATABASE=${MYSQL_DATABASE:-minecraft}
-MYSQL_BIND=${MC_MYSQL_BIND:-127.0.0.1}
+# EXPOSE_SQL=true binds MySQL to 0.0.0.0 (reachable from outside the container)
+# EXPOSE_SQL=false (default) binds to 127.0.0.1 (container-only)
+if [ "${EXPOSE_SQL:-false}" = "true" ]; then
+  MYSQL_BIND=${MC_MYSQL_BIND:-0.0.0.0}
+else
+  MYSQL_BIND=${MC_MYSQL_BIND:-127.0.0.1}
+fi
+# EXPOSE_SMB=true binds Samba to all interfaces (reachable from outside the container)
+# EXPOSE_SMB=false (default) binds to loopback only (container-only)
+if [ "${EXPOSE_SMB:-false}" = "true" ]; then
+  # Detect the container's primary network interface dynamically
+  _SMB_IFACE=$(ip route 2>/dev/null | awk '/default/ {print $5; exit}')
+  _SMB_IFACE=${_SMB_IFACE:-eth0}
+  SMB_INTERFACES=${SMB_INTERFACES:-"lo ${_SMB_IFACE}"}
+  SMB_BIND_ONLY=yes
+else
+  SMB_INTERFACES=${SMB_INTERFACES:-lo}
+  SMB_BIND_ONLY=yes
+fi
+export SMB_INTERFACES SMB_BIND_ONLY
+
 SMB_USER=${SMB_USER:-mcadmin}
 
 # Validate all inputs
@@ -63,6 +87,14 @@ validate_identifier "MYSQL_USER" "$MYSQL_USER"
 validate_identifier "MYSQL_DATABASE" "$MYSQL_DATABASE"
 validate_identifier "SMB_USER" "$SMB_USER"
 validate_ip "MC_MYSQL_BIND" "$MYSQL_BIND"
+
+# RCON enabled by default — required for web portal, agent relay, and remote management
+MC_ENABLE_RCON=${MC_ENABLE_RCON:-true}
+if [ "$MC_ENABLE_RCON" = "true" ] && [ -z "${MC_RCON_PASSWORD:-}" ]; then
+  MC_RCON_PASSWORD=$(openssl rand -base64 24)
+  log "No MC_RCON_PASSWORD set. A random password was generated for this session."
+  log "Set MC_RCON_PASSWORD in your .env to persist it across restarts."
+fi
 
 # Agent relay configuration
 ENABLE_AGENT=${ENABLE_AGENT:-false}
@@ -116,6 +148,12 @@ WEB_PORTAL_MC_DIR=${WEB_PORTAL_MC_DIR:-/minecraft}
 if [ "$ENABLE_WEB_PORTAL" = "true" ]; then
   WEB_PORTAL_AUTOSTART=true
 
+  # Web portal requires query protocol for live server stats — enable it by default
+  MC_ENABLE_QUERY=${MC_ENABLE_QUERY:-true}
+
+  # RCON already enabled globally above; keep portal password in sync
+  WEB_PORTAL_RCON_PASSWORD=${WEB_PORTAL_RCON_PASSWORD:-$MC_RCON_PASSWORD}
+
   # Auto-generate session secret if not provided
   if [ -z "$WEB_PORTAL_SESSION_SECRET" ]; then
     WEB_PORTAL_SESSION_SECRET=$(openssl rand -hex 32)
@@ -152,6 +190,18 @@ export WEB_PORTAL_MC_DIR WEB_PORTAL_QUERY_PORT
 MYSQL_PASSWORD_SQL=$(sql_escape "$MYSQL_PASSWORD")
 
 # 2) MySQL Setup
+MYSQL_AUTOSTART=true
+if [ "$USE_EXTERNAL_MYSQL" = "true" ]; then
+  log "External MySQL enabled — bundled mysqld will not start"
+  log "Web portal will connect to: ${WEB_PORTAL_DB_HOST:-localhost}:${WEB_PORTAL_DB_PORT:-3306}"
+  MYSQL_AUTOSTART=false
+else
+  log "Using bundled MySQL"
+fi
+export MYSQL_AUTOSTART
+
+if [ "$USE_EXTERNAL_MYSQL" != "true" ]; then
+
 log "Setting up MySQL..."
 
 # Ensure MySQL data directory ownership
@@ -268,6 +318,8 @@ fi
 
 log "MySQL setup complete"
 
+fi # end USE_EXTERNAL_MYSQL check
+
 # 3) Create minecraft user if it doesn't exist (already in Dockerfile, but guard for safety)
 if ! id -u minecraft &>/dev/null; then
   log "Creating minecraft user..."
@@ -275,7 +327,7 @@ if ! id -u minecraft &>/dev/null; then
 fi
 
 # 4) Ensure directories exist with correct permissions
-mkdir -p /minecraft /var/run/samba /var/cache/samba /var/lib/samba/private
+mkdir -p /minecraft/plugins /minecraft /var/run/samba /var/cache/samba /var/lib/samba/private
 id -u "$SMB_USER" &>/dev/null || adduser --disabled-password --gecos "" "$SMB_USER"
 chown -R minecraft:minecraft /minecraft
 find /minecraft -type d -exec chmod 755 {} +
@@ -376,18 +428,31 @@ SERVER_PROPERTIES="/minecraft/server.properties"
 [ -n "${MC_TEXT_FILTERING_CONFIG:-}" ] && set_property "text-filtering-config" "$MC_TEXT_FILTERING_CONFIG"
 [ -n "${MC_TEXT_FILTERING_VERSION:-}" ] && set_property "text-filtering-version" "$MC_TEXT_FILTERING_VERSION"
 
-# Accept EULA automatically if env var is set
+# Accept EULA — defaults to true since operating this server image implies agreement
+# with the Minecraft End User License Agreement (https://aka.ms/MinecraftEULA).
+# Set MC_EULA=false to explicitly decline and prevent the server from starting.
 PAPER_AUTOSTART=true
-if [ "${MC_EULA:-}" = "true" ] || [ "${EULA:-}" = "true" ]; then
-  echo "eula=true" > /minecraft/eula.txt
-  log "EULA accepted via environment variable"
-elif [ -f /minecraft/eula.txt ] && grep -qi "eula=true" /minecraft/eula.txt; then
-  log "EULA already accepted in eula.txt"
-else
+if [ "${MC_EULA:-true}" = "false" ] || [ "${EULA:-true}" = "false" ]; then
   log "WARNING: Minecraft EULA not accepted. Paper server will NOT start."
   log "Set MC_EULA=true in your .env file or docker-compose environment to accept."
   log "Other services (MySQL, Samba, Web Portal) will still start normally."
   PAPER_AUTOSTART=false
+elif [ -f /minecraft/eula.txt ] && grep -qi "eula=true" /minecraft/eula.txt; then
+  log "EULA already accepted in eula.txt"
+else
+  echo "eula=true" > /minecraft/eula.txt
+  log "EULA accepted (set MC_EULA=false to decline)"
+fi
+
+# Configure netherdeck.yml world-map from environment
+NETHERDECK_YML="/minecraft/netherdeck.yml"
+if [ -f "$NETHERDECK_YML" ]; then
+  if [ "${ENABLE_WORLD_MAP:-true}" = "true" ]; then
+    sed -i '/^world-map:/{n; s/enabled: false/enabled: true/}' "$NETHERDECK_YML"
+    log "World map enabled"
+  else
+    sed -i '/^world-map:/{n; s/enabled: true/enabled: false/}' "$NETHERDECK_YML"
+  fi
 fi
 
 # Set proper ownership for server files
@@ -436,6 +501,7 @@ log "MySQL bind address: ${MYSQL_BIND}"
 sed -e "s|{{MC_MIN_MEMORY}}|${MC_MIN_MEMORY}|g" \
     -e "s|{{MC_MAX_MEMORY}}|${MC_MAX_MEMORY}|g" \
     -e "s|{{MYSQL_BIND}}|${MYSQL_BIND}|g" \
+    -e "s|{{MYSQL_AUTOSTART}}|${MYSQL_AUTOSTART}|g" \
     -e "s|{{PAPER_AUTOSTART}}|${PAPER_AUTOSTART}|g" \
     -e "s|{{AGENT_AUTOSTART}}|${AGENT_AUTOSTART}|g" \
     -e "s|{{WEB_PORTAL_AUTOSTART}}|${WEB_PORTAL_AUTOSTART}|g" \

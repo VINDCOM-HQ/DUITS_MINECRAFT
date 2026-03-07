@@ -19,6 +19,7 @@ public class ConnectionMixin implements NetworkManagerBridge {
     public java.util.UUID spoofedUUID;
     public com.mojang.authlib.properties.Property[] spoofedProfile;
     public String hostname;
+    public boolean vanillaClient;
 
     @Override
     public UUID bridge$getSpoofedUUID() {
@@ -48,6 +49,16 @@ public class ConnectionMixin implements NetworkManagerBridge {
     @Override
     public void bridge$setHostname(String hostname) {
         this.hostname = hostname;
+    }
+
+    @Override
+    public boolean bridge$isVanillaClient() {
+        return vanillaClient;
+    }
+
+    @Override
+    public void bridge$setVanillaClient(boolean vanilla) {
+        this.vanillaClient = vanilla;
     }
 
     @Inject(method = "handleDisconnection", at = @At("HEAD"), cancellable = true)

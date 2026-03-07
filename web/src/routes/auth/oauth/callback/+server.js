@@ -38,7 +38,7 @@ export async function GET({ url, cookies }) {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'strict',
-			secure: process.env.NODE_ENV === 'production',
+			secure: process.env.WEB_PORTAL_SECURE_COOKIES !== 'false',
 			maxAge: 60 * 60 * 24
 		});
 

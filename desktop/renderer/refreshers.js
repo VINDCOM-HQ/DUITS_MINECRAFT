@@ -27,7 +27,7 @@ export async function updatePlayerStats() {
     window.playerStatsErrorCount=0;
   } catch(err) {
     console.error(`[ERROR] updatePlayerStats: ${err.message}`);
-    if (err.message.includes('Not connected or invalid clientId')) {
+    if (/Not connected|invalid clientId|ECONNREFUSED/.test(err.message)) {
       // swallow
       playerStatsEl.textContent='---';
     } else {
@@ -63,7 +63,7 @@ export async function loadPlayers(showMsg=false){
     if(showMsg){ showToast(`Success: Loaded ${players.length} player(s)`,'success'); await updatePlayerStats(); }
   } catch(err){
     console.error(`[ERROR] loadPlayers: ${err.message}`);
-    if(showMsg||!err.message.includes('Not connected or invalid clientId')){
+    if(showMsg||!/Not connected|invalid clientId|ECONNREFUSED/.test(err.message)){
       showToast(`Failed to load players: ${err.message}`,'error');
     }
   } finally { refreshPlayersBtn.disabled=false; }
@@ -101,7 +101,7 @@ export async function loadBanned(showMsg=false){
     window.bannedListErrorCount=0;
   }catch(err){
     console.error(`[ERROR] loadBanned: ${err.message}`);
-    if(showMsg||!err.message.includes('Not connected or invalid clientId'))
+    if(showMsg||!/Not connected|invalid clientId|ECONNREFUSED/.test(err.message))
       showToast(`Failed to load banned players: ${err.message}`,'error');
   }finally{ refreshBannedBtn.disabled=false; }
 }
@@ -137,7 +137,7 @@ export async function loadBannedIPs(showMsg=false){
     if(showMsg) showToast(`Loaded ${ips.length} banned IP(s)`,'success');
   }catch(err){
     console.error(`[ERROR] loadBannedIPs: ${err.message}`);
-    if(showMsg||!err.message.includes('Not connected or invalid clientId'))
+    if(showMsg||!/Not connected|invalid clientId|ECONNREFUSED/.test(err.message))
       showToast(`Failed to load banned IPs: ${err.message}`,'error');
   }finally{ refreshBannedIPsBtn.disabled=false; }
 }

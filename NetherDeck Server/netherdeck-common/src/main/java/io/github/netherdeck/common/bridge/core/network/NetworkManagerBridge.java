@@ -18,4 +18,8 @@ public interface NetworkManagerBridge {
     String bridge$getHostname();
 
     void bridge$setHostname(String hostname);
+
+    boolean bridge$isVanillaClient();
+
+    void bridge$setVanillaClient(boolean vanilla);
 }

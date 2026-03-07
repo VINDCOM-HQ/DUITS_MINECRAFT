@@ -102,6 +102,8 @@ Build outputs three platform JARs in `build/libs/`:
 - `netherdeck-neoforge-*.jar`
 - `netherdeck-fabric-*.jar`
 
+The `libraries/via/` directory contains bundled ViaVersion + ViaBackwards plugins (v5.7.2) for cross-version client support. These are automatically included in Docker builds.
+
 See [netherdeck-server.md](netherdeck-server.md) for detailed build and development instructions.
 
 ## Docker (full stack)
@@ -112,6 +114,8 @@ cp container/.env.example container/.env
 cd container
 docker compose up -d
 ```
+
+The world map is enabled by default in Docker (`ENABLE_WORLD_MAP=true`). Set `ENABLE_WORLD_MAP=false` in `.env` to disable it.
 
 ## Project Layout
 

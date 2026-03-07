@@ -152,6 +152,14 @@ Complete list of all environment variables across NetherDeck components.
 | `MC_TEXT_FILTERING_CONFIG` | Text filtering config | — |
 | `MC_TEXT_FILTERING_VERSION` | Text filtering version | `0` |
 
+## Container — Feature Toggles
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `EXPOSE_SQL` | Bind MySQL to `0.0.0.0` (allows external DB tools) | `false` |
+| `EXPOSE_SMB` | Bind Samba to all interfaces | `false` |
+| `ENABLE_WORLD_MAP` | Enable/disable NetherDeck world map | `true` |
+
 ## Agent Relay
 
 | Variable | Description | Default | Required |
@@ -225,6 +233,19 @@ These variables control the agent when running inside the Docker container:
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `WEB_PORTAL_QUERY_PORT` | Minecraft query port | `25565` | No |
+
+## Web Portal — World Map
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `WEB_PORTAL_MAP_HOST` | Map HTTP server host | `127.0.0.1` | No |
+| `WEB_PORTAL_MAP_PORT` | Map HTTP server port | `8100` | No |
+
+## Web Portal — Security
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `WEB_PORTAL_SECURE_COOKIES` | Set `false` for HTTP-only deployments (no TLS) | `true` | No |
 
 ## Web Portal — OAuth / OIDC
 

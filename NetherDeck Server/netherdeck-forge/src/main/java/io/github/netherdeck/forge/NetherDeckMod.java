@@ -3,7 +3,10 @@ package io.github.netherdeck.forge;
 import io.github.netherdeck.api.NetherDeck;
 import io.github.netherdeck.common.mod.server.NetherDeckServer;
 import io.github.netherdeck.forge.mod.ForgeNetherDeckServer;
+import io.github.netherdeck.common.netherdeck.VanillaCompatibility;
 import io.github.netherdeck.forge.mod.event.NetherDeckEventDispatcherRegistry;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -23,6 +26,7 @@ public class NetherDeckMod {
         System.setOut(new LoggingPrintStream("STDOUT", System.out, Level.INFO));
         System.setErr(new LoggingPrintStream("STDERR", System.err, Level.ERROR));
         NetherDeckEventDispatcherRegistry.registerAllEventDispatchers();
+        MinecraftForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> VanillaCompatibility.resolve(java.util.List.of()));
     }
 
     private static class LoggingPrintStream extends PrintStream {

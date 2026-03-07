@@ -3,6 +3,8 @@ package io.github.netherdeck.neoforge.mixin.core.network;
 import io.github.netherdeck.common.mod.server.NetherDeckServer;
 import io.github.netherdeck.mixin.Decorate;
 import io.github.netherdeck.mixin.DecorationOps;
+import io.github.netherdeck.common.netherdeck.VanillaCompatibility;
+import io.github.netherdeck.neoforge.mod.network.VanillaConnectionContext;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerLinks;
 import net.minecraft.server.network.ServerConfigurationPacketListenerImpl;
@@ -20,6 +22,7 @@ public abstract class ServerConfigurationPacketListenerImplMixin_NeoForge extend
 
     // @formatter:off
     @Shadow protected abstract void runConfiguration();
+    // connection field inherited from ServerCommonPacketListenerImplMixin_NeoForge
     // @formatter:on
 
     @Decorate(method = "runConfiguration", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;serverLinks()Lnet/minecraft/server/ServerLinks;"))
@@ -33,6 +36,16 @@ public abstract class ServerConfigurationPacketListenerImplMixin_NeoForge extend
 
     @Redirect(method = "handlePong", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerConfigurationPacketListenerImpl;runConfiguration()V"))
     private void netherdeck$runConfigurationMainThread(ServerConfigurationPacketListenerImpl instance) {
-        NetherDeckServer.executeOnMainThread(() -> this.runConfiguration());
+        // Capture vanilla status on the Netty I/O thread, then propagate to the main
+        // thread via the ThreadLocal so NeoForge negotiation mixins can read it.
+        boolean vanilla = VanillaCompatibility.shouldBypass(this.connection);
+        NetherDeckServer.executeOnMainThread(() -> {
+            VanillaConnectionContext.set(vanilla);
+            try {
+                this.runConfiguration();
+            } finally {
+                VanillaConnectionContext.clear();
+            }
+        });
     }
 }

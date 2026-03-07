@@ -1,7 +1,7 @@
 import { query, ensureDatabases } from './db.js';
 import bcrypt from 'bcryptjs';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const MIGRATIONS = [
 	{
@@ -51,6 +51,58 @@ const MIGRATIONS = [
 				KEY idx_ip_created (ip_address, created_at),
 				KEY idx_username_created (username, created_at),
 				KEY idx_created (created_at)
+			);
+		`
+	},
+	{
+		version: 3,
+		description: 'BlueMap extended features — player trails, death markers, respawn points, land claim regions',
+		up: `
+			CREATE TABLE IF NOT EXISTS map_player_trails (
+				id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+				player_uuid VARCHAR(36) NOT NULL,
+				world       VARCHAR(64) NOT NULL,
+				x           DOUBLE NOT NULL,
+				y           DOUBLE NOT NULL,
+				z           DOUBLE NOT NULL,
+				recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				INDEX idx_trail (player_uuid, world, recorded_at)
+			);
+
+			CREATE TABLE IF NOT EXISTS map_death_markers (
+				id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+				player_uuid VARCHAR(36),
+				player_name VARCHAR(64),
+				world       VARCHAR(64),
+				x           DOUBLE,
+				y           DOUBLE,
+				z           DOUBLE,
+				cause       VARCHAR(256),
+				died_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			);
+
+			CREATE TABLE IF NOT EXISTS map_respawn_points (
+				player_uuid VARCHAR(36) PRIMARY KEY,
+				player_name VARCHAR(64),
+				world       VARCHAR(64),
+				x           DOUBLE,
+				y           DOUBLE,
+				z           DOUBLE,
+				set_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+			);
+
+			CREATE TABLE IF NOT EXISTS map_regions (
+				id         INT AUTO_INCREMENT PRIMARY KEY,
+				name       VARCHAR(128),
+				world      VARCHAR(64),
+				min_x      INT,
+				min_z      INT,
+				max_x      INT,
+				max_z      INT,
+				color      VARCHAR(16) DEFAULT '#3388ff',
+				owner      VARCHAR(64),
+				type       VARCHAR(32),
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 			);
 		`
 	}

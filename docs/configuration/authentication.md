@@ -141,11 +141,67 @@ WEB_PORTAL_SAML_ENTITY_ID=https://mc.example.com
 WEB_PORTAL_SAML_CALLBACK_URL=https://mc.example.com/auth/saml/callback
 ```
 
+## Rate Limiting
+
+The portal implements per-IP rate limiting on login attempts (OWASP-compliant):
+
+- **Threshold**: 5 failed attempts per IP address within a 15-minute window.
+- **Lockout**: Once locked, the login form shows a countdown timer. The lockout expires when the oldest failed attempt falls outside the 15-minute window.
+- **Recording**: Every failed attempt is logged to the `login_attempts` table with the username, IP, user agent, and failure reason (`invalid_credentials` or `account_locked`).
+- **IP extraction**: Uses `X-Forwarded-For` header (first), then `X-Real-IP`, then falls back to `127.0.0.1`. Configure your reverse proxy to set these headers for accurate IP tracking.
+- **Graceful degradation**: If the `login_attempts` table hasn't been created yet (migration v2 not applied), rate limiting is silently skipped.
+- **Warning hint**: The login form only shows "X attempts remaining" when the user has 2 or fewer attempts left.
+
+Rate limit checks run **before** credential validation, so locked-out IPs never hit the bcrypt comparison.
+
+## CSRF Protection
+
+SvelteKit's built-in CSRF origin check is disabled (`trustedOrigins: ['*']` in `svelte.config.js`). This is intentional because the portal runs at variable hostnames/IPs in Docker, WSL, and LAN environments where a static trusted origin list is impractical.
+
+CSRF protection is provided instead by session cookies with these attributes:
+- `SameSite: strict` — cookies are never sent on cross-site requests
+- `HttpOnly: true` — cookies are inaccessible to JavaScript
+- `Secure: true` — cookies only sent over HTTPS (configurable via `WEB_PORTAL_SECURE_COOKIES`)
+
+This combination makes cross-site request forgery impossible because the browser will not include the session cookie in any request originating from a different site.
+
+Set `WEB_PORTAL_SECURE_COOKIES=false` if running over HTTP (development or behind a TLS-terminating proxy that forwards HTTP internally).
+
+## Login Audit
+
+Admins can view failed login attempts via the portal API:
+
+```
+GET /api/auth/login-attempts
+```
+
+This endpoint requires an authenticated user with `role: admin`.
+
+### Summary mode (default)
+
+```
+GET /api/auth/login-attempts?mode=summary
+```
+
+Returns:
+- `total24h` — total failed attempts in the last 24 hours
+- `uniqueIps24h` — number of unique source IPs
+- `uniqueUsernames24h` — number of unique usernames attempted
+- `recentAttempts` — last 5 failed attempts with details
+
+### Full mode
+
+```
+GET /api/auth/login-attempts?mode=full&limit=50&offset=0
+```
+
+Returns a paginated list of all failed login attempts with `total` count for pagination.
+
 ## User Roles
 
 | Role | Source | Permissions |
 |------|--------|-------------|
-| `admin` | Break-glass env var only | Full access |
+| `admin` | Break-glass env var only | Full access (including login audit) |
 | `user` | OAuth/SAML provisioning, manual creation | Standard access |
 
 External users (OAuth/SAML) are always created with `role: 'user'`. To grant admin access, update the user's role directly in the database:

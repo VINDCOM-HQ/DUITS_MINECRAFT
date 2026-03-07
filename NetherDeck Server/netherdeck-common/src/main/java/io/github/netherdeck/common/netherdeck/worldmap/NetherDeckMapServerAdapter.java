@@ -4,6 +4,7 @@ import de.bluecolored.bluemap.common.serverinterface.Player;
 import de.bluecolored.bluemap.common.serverinterface.Server;
 import de.bluecolored.bluemap.common.serverinterface.ServerEventListener;
 import de.bluecolored.bluemap.common.serverinterface.ServerWorld;
+import io.github.netherdeck.common.netherdeck.NetherDeckConfig;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -21,11 +22,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class NetherDeckMapServerAdapter implements Server {
 
     private final MinecraftServer server;
-    private final MapConfig config;
+    private final NetherDeckConfig config;
     private final List<ServerEventListener> listeners = new CopyOnWriteArrayList<>();
     private final Map<ServerLevel, NetherDeckMapWorldAdapter> worldAdapters = new LinkedHashMap<>();
 
-    public NetherDeckMapServerAdapter(MinecraftServer server, MapConfig config) {
+    public NetherDeckMapServerAdapter(MinecraftServer server, NetherDeckConfig config) {
         this.server = server;
         this.config = config;
         initWorldAdapters();
@@ -41,9 +42,9 @@ public final class NetherDeckMapServerAdapter implements Server {
 
     private boolean shouldRenderDimension(ServerLevel level) {
         var key = level.dimension();
-        if (key == Level.OVERWORLD) return config.overworld();
-        if (key == Level.NETHER) return config.nether();
-        if (key == Level.END) return config.theEnd();
+        if (key == Level.OVERWORLD) return config.isWorldMapOverworld();
+        if (key == Level.NETHER) return config.isWorldMapNether();
+        if (key == Level.END) return config.isWorldMapTheEnd();
         return false;
     }
 
@@ -55,7 +56,7 @@ public final class NetherDeckMapServerAdapter implements Server {
 
     @Override
     public Path getConfigFolder() {
-        return Path.of("netherdeck-map").resolve("config");
+        return Path.of("netherdeck-map/bluemap/config");
     }
 
     @Override

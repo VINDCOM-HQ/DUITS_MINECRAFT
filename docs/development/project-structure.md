@@ -281,6 +281,8 @@ container/
 ├── logrotate.conf          # Log rotation config
 ├── samba-repair.sh         # Samba repair utility
 ├── samba-debug.sh          # Samba debugging utility
+├── netherdeck.yml          # Default NetherDeck Server config (seeded into image)
+├── neoforge-preinstall.sh  # Offline Maven dependency fetcher for NeoForge builds
 ├── LICENSE
 ├── README.md
 └── SECURITY.md
@@ -305,7 +307,8 @@ NetherDeck Server/
 │   ├── netherdeck-api/         # Public API (source)
 │   ├── netherdeck-mixin-tools/ # Mixin utilities (source)
 │   ├── netherdeck-tools/       # Build tools (source)
-│   └── bluemap/                # BlueMap Core JARs (vendored, MIT)
+│   ├── bluemap/                # BlueMap Core JARs (vendored, MIT)
+│   └── via/                    # ViaVersion + ViaBackwards JARs (v5.7.2)
 └── .github/workflows/
     └── build.yml               # CI build pipeline
 ```

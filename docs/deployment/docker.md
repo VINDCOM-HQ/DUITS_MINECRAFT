@@ -1,6 +1,6 @@
 # Docker Deployment
 
-The NetherDeck Docker image packages a Paper MC server with MySQL, Samba file sharing, an optional agent relay, and an optional web portal — all managed by Supervisor.
+The NetherDeck Docker image packages a NetherDeck Server (hybrid NeoForge + Paper) with MySQL, Samba file sharing, ViaVersion cross-version support, an optional agent relay, and an optional web portal — all managed by Supervisor.
 
 Image: `vindcom/netherdeck`
 
@@ -219,6 +219,65 @@ The agent has an unauthenticated `/health` endpoint:
 curl http://localhost:3500/health
 # {"status":"ok","timestamp":"...","uptime":1234.5}
 ```
+
+## Multi-Loader Builds
+
+The `docker-compose.yml` defines three services for different mod loaders:
+
+| Service | Loader | Game Port | RCON Port | Agent Port | Portal Port |
+|---------|--------|-----------|-----------|------------|-------------|
+| `netherdeck-neoforge` | NeoForge | 25565 | 25575 | 3500 | 3000 |
+| `netherdeck-forge` | Forge | 25566 | 25576 | 3501 | 3001 |
+| `netherdeck-fabric` | Fabric | 25567 | 25577 | 3502 | 3002 |
+
+To build a specific loader variant:
+
+```bash
+docker compose build netherdeck-neoforge    # NeoForge (default)
+docker compose build netherdeck-forge       # Forge
+docker compose build netherdeck-fabric      # Fabric
+```
+
+The loader is controlled by the `LOADER` build arg in the Dockerfile.
+
+## NeoForge Pre-Install
+
+The NeoForge variant runs `neoforge-preinstall.sh` during the Docker build. This script:
+
+1. Downloads the NeoForge 21.1.216 installer from `neoforged.net`
+2. Pre-fetches ~25 Maven library JARs (SnakeYAML, SQLite JDBC, MySQL Connector, SpecialSource, etc.)
+3. Stores everything in the image so the container starts **without internet access**
+
+This ensures reliable offline startup and avoids dependency on external Maven mirrors.
+
+## ViaVersion
+
+The Docker image bundles [ViaVersion](https://viaversion.com/) and ViaBackwards (v5.7.2) as Bukkit plugins. These are automatically copied to `/minecraft/plugins/` during the image build.
+
+ViaVersion enables players using older Minecraft client versions to connect to the 1.21.1 server. No configuration is needed — it works out of the box.
+
+The plugin JARs are located in `NetherDeck Server/libraries/via/`.
+
+## World Map
+
+The built-in world map (NetherDeck Map) is enabled by default in Docker via the `ENABLE_WORLD_MAP` environment variable.
+
+```ini
+ENABLE_WORLD_MAP=true     # default — enable world map
+ENABLE_WORLD_MAP=false    # disable world map
+```
+
+The map configuration is seeded from `container/netherdeck.yml` at build time. The entrypoint script patches the `enabled` flag based on the `ENABLE_WORLD_MAP` env var.
+
+See [../configuration/world-map.md](../configuration/world-map.md) for detailed configuration.
+
+## Feature Toggles
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EXPOSE_SQL` | `false` | Bind MySQL to `0.0.0.0` for external database tools |
+| `EXPOSE_SMB` | `false` | Bind Samba to all interfaces |
+| `ENABLE_WORLD_MAP` | `true` | Enable/disable the built-in world map |
 
 ## Environment Variables
 

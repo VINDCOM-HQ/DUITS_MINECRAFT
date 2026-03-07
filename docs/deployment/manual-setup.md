@@ -146,6 +146,13 @@ WEB_PORTAL_MC_DIR=/path/to/minecraft
 
 # Query port
 WEB_PORTAL_QUERY_PORT=25565
+
+# World map (if NetherDeck Server map is running)
+WEB_PORTAL_MAP_HOST=127.0.0.1
+WEB_PORTAL_MAP_PORT=8100
+
+# Cookie security (set false if not using HTTPS)
+WEB_PORTAL_SECURE_COOKIES=true
 ```
 
 ### Database Setup

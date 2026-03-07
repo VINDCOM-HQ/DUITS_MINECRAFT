@@ -75,7 +75,7 @@ Docker image based on Ubuntu with Supervisor managing all services. The `entrypo
 
 ### NetherDeck Server (`NetherDeck Server/`)
 
-Hybrid NeoForge + Paper server fork targeting Minecraft 1.21.1. Includes a built-in world map feature powered by BlueMap Core.
+Hybrid NeoForge + Paper server fork targeting Minecraft 1.21.1. Includes a built-in world map feature powered by BlueMap Core and bundled ViaVersion/ViaBackwards plugins for cross-version client support.
 
 ## Data Flows
 
@@ -135,7 +135,7 @@ For OAuth/OIDC and SAML flows, the portal redirects to the identity provider, re
 
 ## Database Schema
 
-The web portal uses a MySQL database (`netherdeck` by default) with three tables:
+The web portal uses a MySQL database (`netherdeck` by default) with four tables:
 
 ### `users`
 
@@ -159,6 +159,19 @@ The web portal uses a MySQL database (`netherdeck` by default) with three tables
 | `user_id` | INT | FK → users.id (CASCADE delete) |
 | `created_at` | TIMESTAMP | Auto |
 | `expires_at` | TIMESTAMP | Indexed for cleanup |
+
+### `login_attempts`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INT AUTO_INCREMENT | Primary key |
+| `username` | VARCHAR(255) | Attempted username |
+| `ip_address` | VARCHAR(45) | Client IP (supports IPv6) |
+| `user_agent` | VARCHAR(512) | Browser user agent |
+| `reason` | ENUM('invalid_credentials','account_locked') | Failure reason |
+| `created_at` | TIMESTAMP | Auto |
+
+Indexes: `(ip_address, created_at)`, `(username, created_at)`, `(created_at)`. Used by the rate limiter (5 attempts per IP in 15 minutes). Created automatically by migration v2.
 
 ### `schema_version`
 

@@ -10,6 +10,7 @@ import io.github.netherdeck.common.mod.plugin.messaging.RawPayload;
 import io.github.netherdeck.mixin.Decorate;
 import io.github.netherdeck.mixin.DecorationOps;
 import io.github.netherdeck.mixin.Local;
+import io.github.netherdeck.neoforge.mod.network.VanillaConnectionContext;
 import net.minecraft.network.Connection;
 import net.minecraft.network.ConnectionProtocol;
 import net.minecraft.network.protocol.Packet;
@@ -19,6 +20,9 @@ import net.minecraft.network.protocol.common.ServerCommonPacketListener;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.extensions.ICommonPacketListener;
+import net.neoforged.neoforge.network.negotiation.NegotiableNetworkComponent;
+import net.neoforged.neoforge.network.negotiation.NegotiationResult;
+import net.neoforged.neoforge.network.negotiation.NetworkComponentNegotiator;
 import net.neoforged.neoforge.network.registration.NetworkPayloadSetup;
 import net.neoforged.neoforge.network.registration.NetworkRegistry;
 import net.neoforged.neoforge.network.registration.PayloadRegistration;
@@ -32,6 +36,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -105,6 +110,16 @@ public abstract class NetworkRegistryMixin {
                 }
             });
         }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Redirect(method = "initializeOtherConnection(Lnet/minecraft/network/protocol/configuration/ServerConfigurationPacketListener;)Z",
+            at = @At(value = "INVOKE", target = "Lnet/neoforged/neoforge/network/negotiation/NetworkComponentNegotiator;negotiate(Ljava/util/List;Ljava/util/List;)Lnet/neoforged/neoforge/network/negotiation/NegotiationResult;"))
+    private static NegotiationResult netherdeck$vanillaBypassNegotiate(List server, List client) {
+        if (VanillaConnectionContext.isVanilla()) {
+            return new NegotiationResult(List.of(), true, Map.of());
+        }
+        return NetworkComponentNegotiator.negotiate(server, client);
     }
 
     @Decorate(method = "onConfigurationFinished", at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/neoforged/neoforge/common/extensions/ICommonPacketListener;send(Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload;)V"))

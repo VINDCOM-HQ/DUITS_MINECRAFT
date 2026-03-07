@@ -107,6 +107,22 @@ All routes are under `src/routes/api/` and return JSON. Authentication is enforc
 |--------|------|----------|
 | GET | `/api/console/stream` | Server-Sent Events (log lines) |
 
+The SSE stream emits three event types:
+
+| Event | When | Payload |
+|-------|------|---------|
+| `initial` | On connect (once) | `{ "lines": ["[12:00:01] ...", ...] }` — last ~200 lines of `logs/latest.log` |
+| `lines` | New log data | `{ "lines": ["[12:05:30] ..."] }` |
+| `error` | File/read error | `{ "message": "..." }` |
+
+Log lines follow Minecraft's format: `[HH:MM:SS] [Thread/LEVEL]: Message`. The console page parses these to colour-code by level (INFO, WARN, ERROR).
+
+### Auth
+
+| Method | Path | Params | Response |
+|--------|------|--------|----------|
+| GET | `/api/auth/login-attempts` | `?mode=summary\|full&limit=N&offset=N` | Login audit data (admin only) |
+
 ### Map
 
 | Method | Path | Response |
@@ -120,6 +136,30 @@ All routes are under `src/routes/api/` and return JSON. Authentication is enforc
 | Method | Path | Response |
 |--------|------|----------|
 | GET | `/api/status` | `{ success, status }` |
+
+### Auth Routes (non-API)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/auth/oauth` | Initiates OAuth/OIDC login redirect |
+| GET | `/auth/oauth/callback` | Handles OAuth callback |
+| GET | `/auth/saml` | Initiates SAML login redirect |
+| POST | `/auth/saml/callback` | Handles SAML assertion |
+
+## Pages
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Dashboard / home |
+| `/login` | Login (local + OAuth + SAML) |
+| `/console` | RCON console + live log stream |
+| `/query` | Server query (status, players) |
+| `/players` | Player list |
+| `/files` | File browser |
+| `/database` | MySQL query interface |
+| `/server` | Server control (start/stop/restart) |
+| `/settings` | Portal settings |
+| `/map` | World map viewer |
 
 ## Adding a New Feature
 
