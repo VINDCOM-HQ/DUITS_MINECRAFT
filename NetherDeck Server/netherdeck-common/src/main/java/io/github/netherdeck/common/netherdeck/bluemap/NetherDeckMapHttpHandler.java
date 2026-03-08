@@ -53,8 +53,17 @@ public final class NetherDeckMapHttpHandler {
     private static final Logger LOGGER = LogManager.getLogger("NetherDeck-BlueMap");
     private static final Gson GSON = new GsonBuilder().create();
 
-    /** BlueMap writes tiles here: netherdeck-map/bluemap/maps/<map>/tiles/... */
-    private static final Path BLUEMAP_MAPS_DIR = Path.of(NetherDeckBlueMapPlugin.BLUEMAP_ROOT, "maps");
+    /**
+     * BlueMap's web root — Three.js web app is extracted here by BlueMap on startup.
+     * Default BlueMap webroot is "bluemap/web" (from webapp.conf).
+     */
+    private static final Path BLUEMAP_WEBROOT = Path.of("bluemap/web");
+
+    /**
+     * BlueMap writes rendered map tiles here: bluemap/web/maps/&lt;mapId&gt;/...
+     * Default BlueMap file storage root is "bluemap/web/maps" (from storages/file.conf).
+     */
+    private static final Path BLUEMAP_MAPS_DIR = Path.of("bluemap/web/maps");
 
     private final NetherDeckConfig config;
     private final NetherDeckMapServerAdapter serverAdapter;
@@ -78,7 +87,7 @@ public final class NetherDeckMapHttpHandler {
             return t;
         }));
 
-        // BlueMap tile passthrough
+        // BlueMap tile passthrough (also intercepts live/players.json for dynamic serving)
         httpServer.createContext("/maps", this::handleMaps);
 
         // Legacy tile compatibility (existing SvelteKit proxy expects /tiles/...)
@@ -92,6 +101,9 @@ public final class NetherDeckMapHttpHandler {
         httpServer.createContext("/live/heatmap", this::handleHeatmap);
         httpServer.createContext("/metadata", this::handleMetadata);
         httpServer.createContext("/health", this::handleHealth);
+
+        // Catch-all: serve BlueMap's Three.js web app static files from BLUEMAP_WEBROOT
+        httpServer.createContext("/", this::handleWebApp);
 
         httpServer.start();
         LOGGER.info("[NetherDeck-BlueMap] HTTP server listening on {}:{}",
@@ -110,7 +122,11 @@ public final class NetherDeckMapHttpHandler {
     // Tile handlers
     // -------------------------------------------------------------------------
 
-    /** Serves BlueMap-rendered tiles from {@code netherdeck-map/bluemap/maps/...} */
+    /**
+     * Serves BlueMap map data from {@code bluemap/web/maps/...}.
+     * Intercepts {@code /maps/<mapId>/live/players.json} to return live player positions
+     * in BlueMap's expected format (since BlueMap's own webserver is disabled).
+     */
     private void handleMaps(HttpExchange exchange) throws IOException {
         if (!"GET".equals(exchange.getRequestMethod())) {
             sendJson(exchange, 405, Map.of("error", "Method not allowed"));
@@ -124,7 +140,83 @@ public final class NetherDeckMapHttpHandler {
             relativePath = relativePath.substring(1);
         }
 
+        // Intercept live/players.json — BlueMap's Three.js app requests this for player markers
+        if (relativePath.matches("[^/]+/live/players\\.json")) {
+            handleBluemapLivePlayers(exchange);
+            return;
+        }
+
         var filePath = BLUEMAP_MAPS_DIR.resolve(relativePath);
+        serveFile(exchange, filePath);
+    }
+
+    /** Returns player positions in BlueMap's {@code live/players.json} format. */
+    private void handleBluemapLivePlayers(HttpExchange exchange) throws IOException {
+        var mcServer = serverAdapter.getMinecraftServer();
+        var playerList = new ArrayList<Map<String, Object>>();
+
+        if (mcServer.getPlayerList() != null) {
+            for (net.minecraft.server.level.ServerPlayer player : mcServer.getPlayerList().getPlayers()) {
+                var pos = player.position();
+                playerList.add(Map.of(
+                        "playerName", player.getGameProfile().getName(),
+                        "uuid", player.getUUID().toString(),
+                        "foreign", false,
+                        "position", Map.of("x", pos.x, "y", pos.y, "z", pos.z),
+                        "rotation", Map.of("pitch", 0.0, "yaw", player.getYRot(), "roll", 0.0)
+                ));
+            }
+        }
+
+        sendJson(exchange, 200, Map.of(
+                "timestamp", System.currentTimeMillis(),
+                "players", playerList
+        ));
+    }
+
+    /**
+     * Serves BlueMap's Three.js web application static files from {@code bluemap/web/}.
+     * Acts as a catch-all for any path not matched by more specific handlers.
+     */
+    private void handleWebApp(HttpExchange exchange) throws IOException {
+        if (!"GET".equals(exchange.getRequestMethod())) {
+            sendJson(exchange, 405, Map.of("error", "Method not allowed"));
+            return;
+        }
+
+        var uriPath = exchange.getRequestURI().getPath();
+        var relative = uriPath.startsWith("/") ? uriPath.substring(1) : uriPath;
+
+        // Root or bare directory → serve index.html
+        if (relative.isEmpty() || relative.endsWith("/")) {
+            relative = relative + "index.html";
+        }
+
+        var filePath = BLUEMAP_WEBROOT.resolve(relative).normalize();
+
+        // Prevent path traversal
+        if (!filePath.startsWith(BLUEMAP_WEBROOT.normalize())) {
+            sendJson(exchange, 403, Map.of("error", "Forbidden"));
+            return;
+        }
+
+        // If BlueMap hasn't extracted its web app yet, return a friendly placeholder
+        if (!Files.exists(BLUEMAP_WEBROOT)) {
+            var html = "<html><body style='font-family:monospace;padding:2em;background:#1a1625;color:#c4b5fd'>" +
+                    "<h2>BlueMap is initialising...</h2>" +
+                    "<p>The 3D world map is loading for the first time. " +
+                    "BlueMap is downloading Minecraft resources and rendering the map. " +
+                    "This may take a few minutes. Please refresh the page shortly.</p>" +
+                    "</body></html>";
+            var bytes = html.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var os = exchange.getResponseBody()) {
+                os.write(bytes);
+            }
+            return;
+        }
+
         serveFile(exchange, filePath);
     }
 
@@ -155,17 +247,37 @@ public final class NetherDeckMapHttpHandler {
     }
 
     private void serveFile(HttpExchange exchange, Path filePath) throws IOException {
+        // BlueMap compresses tiles with gzip — try the .gz variant if the bare file doesn't exist
+        boolean gzipped = false;
         if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-            sendJson(exchange, 404, Map.of("error", "Tile not found"));
-            return;
+            var gzPath = filePath.resolveSibling(filePath.getFileName() + ".gz");
+            if (Files.exists(gzPath) && Files.isRegularFile(gzPath)) {
+                filePath = gzPath;
+                gzipped = true;
+            } else {
+                sendJson(exchange, 404, Map.of("error", "Tile not found"));
+                return;
+            }
         }
 
-        var contentType = guessContentType(filePath.toString());
+        // If the file itself has a .gz extension it's a pre-compressed asset
+        var fileName = filePath.getFileName().toString();
+        if (fileName.endsWith(".gz") && !gzipped) {
+            gzipped = true;
+        }
+
+        // Content-Type is the type of the underlying (uncompressed) resource
+        var typePath = gzipped ? filePath.resolveSibling(fileName.replaceAll("\\.gz$", "")).toString()
+                                : filePath.toString();
+        var contentType = guessContentType(typePath);
         var bytes = Files.readAllBytes(filePath);
 
         exchange.getResponseHeaders().set("Content-Type", contentType);
         exchange.getResponseHeaders().set("Cache-Control", "public, max-age=60");
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        if (gzipped) {
+            exchange.getResponseHeaders().set("Content-Encoding", "gzip");
+        }
         exchange.sendResponseHeaders(200, bytes.length);
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(bytes);
@@ -340,7 +452,12 @@ public final class NetherDeckMapHttpHandler {
         if (path.endsWith(".png")) return "image/png";
         if (path.endsWith(".json")) return "application/json";
         if (path.endsWith(".prbm")) return "application/octet-stream";
-        if (path.endsWith(".gz")) return "application/gzip";
+        if (path.endsWith(".js")) return "application/javascript";
+        if (path.endsWith(".css")) return "text/css";
+        if (path.endsWith(".html")) return "text/html; charset=utf-8";
+        if (path.endsWith(".svg")) return "image/svg+xml";
+        if (path.endsWith(".woff2")) return "font/woff2";
+        if (path.endsWith(".woff")) return "font/woff";
         return "application/octet-stream";
     }
 

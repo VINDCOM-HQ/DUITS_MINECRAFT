@@ -1,11 +1,14 @@
 <script>
 	import '../app.css';
+	import { page } from '$app/state';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { getStatus } from '$lib/api.js';
 	import { setRcon, setMysql, setServerStatus } from '$lib/stores/connections.svelte.js';
 
 	let { data, children } = $props();
+
+	let isMapPage = $derived(page.url.pathname === '/map');
 
 	// Hydrate shared connection stores from /api/status so every page
 	// (players, server, sidebar, etc.) has current state regardless of
@@ -35,7 +38,7 @@
 {#if data.user}
 	<div class="flex h-screen overflow-hidden bg-obsidian-950">
 		<Sidebar user={data.user} />
-		<main class="flex-1 overflow-y-auto p-6 bg-obsidian-950">
+		<main class="flex-1 relative bg-obsidian-950 {isMapPage ? 'overflow-hidden' : 'overflow-y-auto p-6'}">
 			{@render children()}
 		</main>
 	</div>

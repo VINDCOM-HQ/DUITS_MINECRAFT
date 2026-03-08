@@ -136,7 +136,7 @@ export async function runMigrations() {
 					await query(stmt);
 				}
 
-				await query('INSERT INTO schema_version (version) VALUES (?)', [migration.version]);
+				await query('INSERT IGNORE INTO schema_version (version) VALUES (?)', [migration.version]);
 			}
 		}
 

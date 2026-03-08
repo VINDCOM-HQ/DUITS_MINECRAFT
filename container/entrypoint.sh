@@ -431,12 +431,12 @@ SERVER_PROPERTIES="/minecraft/server.properties"
 # Accept EULA — defaults to true since operating this server image implies agreement
 # with the Minecraft End User License Agreement (https://aka.ms/MinecraftEULA).
 # Set MC_EULA=false to explicitly decline and prevent the server from starting.
-PAPER_AUTOSTART=true
+NETHERDECK_AUTOSTART=true
 if [ "${MC_EULA:-true}" = "false" ] || [ "${EULA:-true}" = "false" ]; then
-  log "WARNING: Minecraft EULA not accepted. Paper server will NOT start."
+  log "WARNING: Minecraft EULA not accepted. NetherDeck server will NOT start."
   log "Set MC_EULA=true in your .env file or docker-compose environment to accept."
   log "Other services (MySQL, Samba, Web Portal) will still start normally."
-  PAPER_AUTOSTART=false
+  NETHERDECK_AUTOSTART=false
 elif [ -f /minecraft/eula.txt ] && grep -qi "eula=true" /minecraft/eula.txt; then
   log "EULA already accepted in eula.txt"
 else
@@ -502,7 +502,7 @@ sed -e "s|{{MC_MIN_MEMORY}}|${MC_MIN_MEMORY}|g" \
     -e "s|{{MC_MAX_MEMORY}}|${MC_MAX_MEMORY}|g" \
     -e "s|{{MYSQL_BIND}}|${MYSQL_BIND}|g" \
     -e "s|{{MYSQL_AUTOSTART}}|${MYSQL_AUTOSTART}|g" \
-    -e "s|{{PAPER_AUTOSTART}}|${PAPER_AUTOSTART}|g" \
+    -e "s|{{NETHERDECK_AUTOSTART}}|${NETHERDECK_AUTOSTART}|g" \
     -e "s|{{AGENT_AUTOSTART}}|${AGENT_AUTOSTART}|g" \
     -e "s|{{WEB_PORTAL_AUTOSTART}}|${WEB_PORTAL_AUTOSTART}|g" \
     /etc/supervisor/supervisord.conf.tmpl > /etc/supervisor/supervisord.conf

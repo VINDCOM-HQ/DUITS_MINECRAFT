@@ -148,7 +148,7 @@ services:
       - "${SMB_HOST_IP:-127.0.0.1}:${NEOFORGE_SMB_137:-137}:137/udp"
       - "${SMB_HOST_IP:-127.0.0.1}:${NEOFORGE_SMB_138:-138}:138/udp"
       - "${NEOFORGE_AGENT_PORT:-3500}:3500/tcp"
-      - "${NEOFORGE_WEB_PORT:-3000}:3000/tcp"
+      - "${NEOFORGE_WEB_PORT:-3323}:3000/tcp"
     volumes:
       - mc_data_neoforge:/minecraft
       - mysql_data_neoforge:/var/lib/mysql

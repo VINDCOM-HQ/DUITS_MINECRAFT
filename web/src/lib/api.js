@@ -15,6 +15,13 @@ async function request(method, url, body) {
 	}
 
 	const res = await fetch(url, opts);
+
+	// Session expired or never authenticated — redirect to login
+	if (res.status === 401) {
+		window.location.href = '/login';
+		throw new Error('Session expired');
+	}
+
 	const data = await res.json();
 
 	if (!res.ok || data.success === false) {

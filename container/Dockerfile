@@ -56,8 +56,8 @@ ARG LOADER=neoforge
 # JAR_HASH is passed at build time to bust the Docker layer cache when the JAR changes
 ARG JAR_HASH=unknown
 COPY ["NetherDeck Server/bootstrap/build/libs/", "/tmp/netherdeck-jars/"]
-RUN cp /tmp/netherdeck-jars/netherdeck-${LOADER}-*.jar /minecraft/paper.jar \
-  && chown minecraft:minecraft /minecraft/paper.jar \
+RUN cp /tmp/netherdeck-jars/netherdeck-${LOADER}-*.jar /minecraft/netherdeck.jar \
+  && chown minecraft:minecraft /minecraft/netherdeck.jar \
   && rm -rf /tmp/netherdeck-jars
 
 # ---------- 3a) Bundle ViaVersion plugins for cross-version client support ----------

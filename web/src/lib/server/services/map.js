@@ -50,7 +50,7 @@ export async function getMetadata() {
  * Get live player positions.
  */
 export async function getPlayers() {
-	return fetchJson('/players');
+	return fetchJson('/live/players');
 }
 
 /**

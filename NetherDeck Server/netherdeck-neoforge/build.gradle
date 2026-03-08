@@ -66,6 +66,10 @@ shadowJar {
     // lz4 is provided by NeoForge at runtime; excluding avoids a JPMS package-split
     // between the netherdeck module and org.lz4.java when ModLauncher builds its layer.
     exclude 'net/jpountz/**'
+    // com.typesafe:config (HOCON parser) is already on NeoForge's bootstrap classpath;
+    // shadowing it causes a JPMS package-split with the minecraft module.
+    exclude 'com/typesafe/**'
+    exclude 'reference.conf'
 
     configurations = [project.configurations.shadowBundle]
     archiveClassifier = 'dev-shadow'
