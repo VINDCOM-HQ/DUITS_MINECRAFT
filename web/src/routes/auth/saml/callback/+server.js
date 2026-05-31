@@ -24,7 +24,7 @@ export async function POST({ request, cookies }) {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'strict',
-			secure: process.env.WEB_PORTAL_SECURE_COOKIES !== 'false',
+			secure: process.env.NODE_ENV === 'production' || process.env.WEB_PORTAL_SECURE_COOKIES !== 'false',
 			maxAge: 60 * 60 * 24
 		});
 
@@ -33,6 +33,7 @@ export async function POST({ request, cookies }) {
 		if (err.status === 303) {
 			throw err;
 		}
-		throw redirect(303, `/login?error=${encodeURIComponent(err.message)}`);
+		console.error('[saml] callback failed:', err.message);
+		throw redirect(303, '/login?error=saml_failed');
 	}
 }

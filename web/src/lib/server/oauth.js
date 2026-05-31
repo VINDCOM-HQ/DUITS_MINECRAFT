@@ -1,18 +1,22 @@
 import crypto from 'node:crypto';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 /**
- * Lightweight OIDC Relying Party using native fetch.
- * Supports any standard OpenID Connect provider via discovery.
+ * OIDC Relying Party. Identity is established by cryptographically verifying the
+ * signed id_token (JWKS signature + iss/aud/exp/nonce) — NOT by trusting the
+ * userinfo response. State + nonce + PKCE bind the flow to one browser session.
  */
 
-const OAUTH_ISSUER = process.env.WEB_PORTAL_OAUTH_ISSUER_URL || '';
+const OAUTH_ISSUER = (process.env.WEB_PORTAL_OAUTH_ISSUER_URL || '').replace(/\/$/, '');
 const OAUTH_CLIENT_ID = process.env.WEB_PORTAL_OAUTH_CLIENT_ID || '';
 const OAUTH_CLIENT_SECRET = process.env.WEB_PORTAL_OAUTH_CLIENT_SECRET || '';
 const OAUTH_SCOPES = process.env.WEB_PORTAL_OAUTH_SCOPES || 'openid profile email';
 const OAUTH_CALLBACK_URL = process.env.WEB_PORTAL_OAUTH_CALLBACK_URL || '';
+const HTTP_TIMEOUT_MS = 8000;
 
 let discoveryCache = null;
 let discoveryExpiry = 0;
+let jwks = null;
 
 /**
  * Check whether OAuth/OIDC is enabled and fully configured.
@@ -28,43 +32,65 @@ export function isOAuthEnabled() {
 }
 
 /**
- * Fetch the OIDC discovery document from the issuer.
- * Caches for 1 hour.
+ * Fetch + cache the OIDC discovery document. Enforces https and that the
+ * advertised issuer exactly matches our configured issuer (mix-up defense).
  */
 async function discover() {
 	if (discoveryCache && Date.now() < discoveryExpiry) {
 		return discoveryCache;
 	}
 
-	const url = OAUTH_ISSUER.replace(/\/$/, '') + '/.well-known/openid-configuration';
-	const res = await fetch(url);
-
-	if (!res.ok) {
-		throw new Error(`OIDC discovery failed: ${res.status} ${res.statusText}`);
+	if (!/^https:\/\//i.test(OAUTH_ISSUER)) {
+		throw new Error('OAuth issuer must be an https URL');
 	}
 
-	discoveryCache = await res.json();
-	discoveryExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
-	return discoveryCache;
+	const url = OAUTH_ISSUER + '/.well-known/openid-configuration';
+	const res = await fetch(url, { signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
+	if (!res.ok) {
+		throw new Error(`OIDC discovery failed: ${res.status}`);
+	}
+
+	const cfg = await res.json();
+	if (cfg.issuer !== OAUTH_ISSUER) {
+		throw new Error('OIDC discovery issuer mismatch');
+	}
+	if (!cfg.jwks_uri || !/^https:\/\//i.test(cfg.jwks_uri)) {
+		throw new Error('OIDC discovery has no https jwks_uri');
+	}
+
+	discoveryCache = cfg;
+	discoveryExpiry = Date.now() + 60 * 60 * 1000;
+	return cfg;
+}
+
+function getJwks(jwksUri) {
+	if (!jwks) {
+		jwks = createRemoteJWKSet(new URL(jwksUri));
+	}
+	return jwks;
 }
 
 /**
- * Generate a cryptographic state parameter for CSRF protection.
- * @returns {string}
+ * Generate the per-login transient values: CSRF state, OIDC nonce, and a PKCE
+ * verifier/challenge (S256). state + nonce + verifier are stored server-side
+ * (httpOnly cookie); only the challenge goes to the IdP.
  */
-export function generateState() {
-	return crypto.randomBytes(32).toString('hex');
+export function generateLoginParams() {
+	const state = crypto.randomBytes(32).toString('base64url');
+	const nonce = crypto.randomBytes(32).toString('base64url');
+	const codeVerifier = crypto.randomBytes(32).toString('base64url');
+	const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+	return { state, nonce, codeVerifier, codeChallenge };
 }
 
 /**
  * Build the authorization URL to redirect the user to.
- * @param {string} state - CSRF state parameter
+ * @param {{ state: string, nonce: string, codeChallenge: string }} params
  * @returns {Promise<string>}
  */
-export async function getAuthorizationUrl(state) {
+export async function getAuthorizationUrl({ state, nonce, codeChallenge }) {
 	const config = await discover();
 	const authEndpoint = config.authorization_endpoint;
-
 	if (!authEndpoint) {
 		throw new Error('OIDC provider has no authorization_endpoint');
 	}
@@ -74,21 +100,23 @@ export async function getAuthorizationUrl(state) {
 		client_id: OAUTH_CLIENT_ID,
 		redirect_uri: OAUTH_CALLBACK_URL,
 		scope: OAUTH_SCOPES,
-		state
+		state,
+		nonce,
+		code_challenge: codeChallenge,
+		code_challenge_method: 'S256'
 	});
 
 	return `${authEndpoint}?${params.toString()}`;
 }
 
 /**
- * Exchange an authorization code for tokens.
+ * Exchange an authorization code (+ PKCE verifier) for tokens.
  * @param {string} code
- * @returns {Promise<{access_token: string, id_token: string}>}
+ * @param {string} codeVerifier
  */
-async function exchangeCode(code) {
+async function exchangeCode(code, codeVerifier) {
 	const config = await discover();
 	const tokenEndpoint = config.token_endpoint;
-
 	if (!tokenEndpoint) {
 		throw new Error('OIDC provider has no token_endpoint');
 	}
@@ -98,68 +126,67 @@ async function exchangeCode(code) {
 		code,
 		redirect_uri: OAUTH_CALLBACK_URL,
 		client_id: OAUTH_CLIENT_ID,
-		client_secret: OAUTH_CLIENT_SECRET
+		client_secret: OAUTH_CLIENT_SECRET,
+		code_verifier: codeVerifier
 	});
 
 	const res = await fetch(tokenEndpoint, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-		body: body.toString()
+		body: body.toString(),
+		signal: AbortSignal.timeout(HTTP_TIMEOUT_MS)
 	});
 
 	if (!res.ok) {
-		const text = await res.text();
-		throw new Error(`Token exchange failed: ${res.status} ${text}`);
+		// Drain without surfacing the IdP body to the client/logs.
+		await res.text().catch(() => {});
+		throw new Error(`Token exchange failed: ${res.status}`);
 	}
 
 	return res.json();
 }
 
 /**
- * Fetch the user info from the OIDC provider.
- * @param {string} accessToken
- * @returns {Promise<{sub: string, name?: string, preferred_username?: string, email?: string}>}
+ * Complete the OIDC callback: exchange the code, then VERIFY the id_token
+ * (signature against JWKS, iss/aud/exp, and nonce). Identity is derived from the
+ * verified token claims.
+ * @param {string} code
+ * @param {{ nonce: string, codeVerifier: string }} ctx
+ * @returns {Promise<{ sub: string, displayName: string, email?: string, emailVerified: boolean }>}
  */
-async function fetchUserInfo(accessToken) {
+export async function handleCallback(code, { nonce, codeVerifier }) {
 	const config = await discover();
-	const userinfoEndpoint = config.userinfo_endpoint;
+	const tokens = await exchangeCode(code, codeVerifier);
 
-	if (!userinfoEndpoint) {
-		throw new Error('OIDC provider has no userinfo_endpoint');
+	if (!tokens.id_token) {
+		throw new Error('OIDC provider did not return an id_token');
 	}
 
-	const res = await fetch(userinfoEndpoint, {
-		headers: { Authorization: `Bearer ${accessToken}` }
+	// jose verifies the signature against the IdP JWKS, rejects alg:none, and
+	// enforces exp/nbf; we additionally pin issuer + audience.
+	const { payload } = await jwtVerify(tokens.id_token, getJwks(config.jwks_uri), {
+		issuer: OAUTH_ISSUER,
+		audience: OAUTH_CLIENT_ID,
+		clockTolerance: 60
 	});
 
-	if (!res.ok) {
-		throw new Error(`Userinfo request failed: ${res.status}`);
+	if (!nonce || payload.nonce !== nonce) {
+		throw new Error('OIDC nonce mismatch');
 	}
-
-	return res.json();
-}
-
-/**
- * Handle the full OIDC callback flow: exchange code, fetch userinfo.
- * @param {string} code - Authorization code from the provider
- * @returns {Promise<{sub: string, displayName: string}>}
- */
-export async function handleCallback(code) {
-	const tokens = await exchangeCode(code);
-	const userInfo = await fetchUserInfo(tokens.access_token);
-
-	if (!userInfo.sub) {
-		throw new Error('OIDC provider did not return a subject identifier');
+	if (!payload.sub) {
+		throw new Error('id_token has no subject identifier');
 	}
 
 	const displayName =
-		userInfo.preferred_username ||
-		userInfo.name ||
-		userInfo.email ||
-		userInfo.sub;
+		payload.preferred_username ||
+		payload.name ||
+		payload.email ||
+		payload.sub;
 
 	return {
-		sub: userInfo.sub,
-		displayName
+		sub: String(payload.sub),
+		displayName: String(displayName),
+		email: payload.email ? String(payload.email) : undefined,
+		emailVerified: payload.email_verified === true
 	};
 }

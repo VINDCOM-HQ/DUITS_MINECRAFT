@@ -1,0 +1,133 @@
+# ═══════════════════════════════════════════════════════════════════
+# NetherDeck - Docker Swarm stack (single replica)
+# ═══════════════════════════════════════════════════════════════════
+# Deploy (let docker parse the env file — do NOT `source` it; values with
+# spaces, e.g. OAUTH_SCOPES, don't survive bash sourcing):
+#   docker compose -f container/netherdeck-stack.yml \
+#     --env-file container/netherdeck-stack.env config \
+#     | docker stack deploy -c - netherdeck
+#
+# All values come from the env file (see netherdeck-stack.env) — this file
+# only references variables, no inline defaults.
+#
+# Topology:
+#   - Web portal (:3000)  -> reached by the WAF over `app-network`
+#                            (server_name mc.clouddux.tech -> netherdeck:3000)
+#   - Minecraft (25565)   -> published directly on the host, bypassing the WAF
+#   - RCON / MySQL / SMB  -> internal only (never published)
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  netherdeck:
+    image: ${DOCKER_HUB_USERNAME}/netherdeck-neoforge:${NETHERDECK_TAG}
+    networks:
+      app-network:
+        # Stable alias so the WAF can reach the portal as `netherdeck:3000`
+        # regardless of the deployed stack name.
+        aliases:
+          - netherdeck
+    ports:
+      # Game — published directly on the host, bypassing the WAF (TCP + UDP query)
+      - target: 25565
+        published: 25565
+        protocol: tcp
+        mode: host
+      - target: 25565
+        published: 25565
+        protocol: udp
+        mode: host
+      # 3000 (portal), 25575 (RCON), 3306 (MySQL), 445/139 (SMB) intentionally NOT published.
+    volumes:
+      - mc_data:/minecraft
+      - mysql_data:/var/lib/mysql
+      - smb_logs:/var/log/samba
+      - supervisor_logs:/var/log/supervisor
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "25565"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 10G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    environment:
+      # ── Infra / EULA ──
+      - TZ=${TZ}
+      - MC_EULA=${MC_EULA}
+      - MC_MIN_MEMORY=${MC_MIN_MEMORY}
+      - MC_MAX_MEMORY=${MC_MAX_MEMORY}
+      - MC_MOTD=${MC_MOTD}
+      # ── MySQL (internal) ──
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${DATABASE_NAME}
+      - MC_MYSQL_BIND=${MC_MYSQL_BIND}
+      # ── Samba (internal) ──
+      - SMB_USER=${SMB_USER}
+      - SMB_PASSWORD=${SMB_PASSWORD}
+      # ── RCON (internal) ──
+      - MC_ENABLE_RCON=${MC_ENABLE_RCON}
+      - MC_RCON_PASSWORD=${MC_RCON_PASSWORD}
+      # ── Web portal (fronted by the WAF) ──
+      - ENABLE_WEB_PORTAL=${ENABLE_WEB_PORTAL}
+      - WEB_PORTAL_PORT=${WEB_PORTAL_PORT}
+      - ORIGIN=${ORIGIN}
+      - WEB_PORTAL_SECURE_COOKIES=${WEB_PORTAL_SECURE_COOKIES}
+      - WEB_PORTAL_SESSION_SECRET=${WEB_PORTAL_SESSION_SECRET}
+      - WEB_PORTAL_ADMIN_USER=${WEB_PORTAL_ADMIN_USER}
+      - WEB_PORTAL_ADMIN_PASSWORD=${WEB_PORTAL_ADMIN_PASSWORD}
+      - WEB_PORTAL_DB_USER=${WEB_PORTAL_DB_USER}
+      - WEB_PORTAL_DB_PASSWORD=${WEB_PORTAL_DB_PASSWORD}
+      - WEB_PORTAL_DB_NAME=${WEB_PORTAL_DB_NAME}
+      - WEB_PORTAL_GAME_DB_NAME=${DATABASE_NAME}
+      - WEB_PORTAL_RCON_HOST=${WEB_PORTAL_RCON_HOST}
+      - WEB_PORTAL_RCON_PORT=${WEB_PORTAL_RCON_PORT}
+      - WEB_PORTAL_RCON_PASSWORD=${MC_RCON_PASSWORD}
+      # ── Portal: world-map endpoint (internal BlueMap HTTP) ──
+      - WEB_PORTAL_MAP_HOST=${WEB_PORTAL_MAP_HOST}
+      - WEB_PORTAL_MAP_PORT=${WEB_PORTAL_MAP_PORT}
+      # ── Portal: OAuth/OIDC (disabled) — supervisord requires these to be set ──
+      - WEB_PORTAL_OAUTH_ENABLED=${WEB_PORTAL_OAUTH_ENABLED}
+      - WEB_PORTAL_OAUTH_ISSUER_URL=${WEB_PORTAL_OAUTH_ISSUER_URL}
+      - WEB_PORTAL_OAUTH_CLIENT_ID=${WEB_PORTAL_OAUTH_CLIENT_ID}
+      - WEB_PORTAL_OAUTH_CLIENT_SECRET=${WEB_PORTAL_OAUTH_CLIENT_SECRET}
+      - WEB_PORTAL_OAUTH_SCOPES=${WEB_PORTAL_OAUTH_SCOPES}
+      - WEB_PORTAL_OAUTH_CALLBACK_URL=${WEB_PORTAL_OAUTH_CALLBACK_URL}
+      # ── Portal: SAML 2.0 (disabled) ──
+      - WEB_PORTAL_SAML_ENABLED=${WEB_PORTAL_SAML_ENABLED}
+      - WEB_PORTAL_SAML_IDP_METADATA_URL=${WEB_PORTAL_SAML_IDP_METADATA_URL}
+      - WEB_PORTAL_SAML_ENTITY_ID=${WEB_PORTAL_SAML_ENTITY_ID}
+      - WEB_PORTAL_SAML_CALLBACK_URL=${WEB_PORTAL_SAML_CALLBACK_URL}
+      # ── World map (BlueMap) ──
+      - ENABLE_WORLD_MAP=${ENABLE_WORLD_MAP}
+
+networks:
+  app-network:
+    external: true
+
+volumes:
+  mc_data:
+    driver: local
+  mysql_data:
+    driver: local
+  smb_logs:
+    driver: local
+  supervisor_logs:
+    driver: local
