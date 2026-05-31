@@ -159,7 +159,10 @@ public final class NetherDeckMapHttpHandler {
             for (net.minecraft.server.level.ServerPlayer player : mcServer.getPlayerList().getPlayers()) {
                 var pos = player.position();
                 playerList.add(Map.of(
-                        "playerName", player.getGameProfile().getName(),
+                        // BlueMap's live/players.json webapp reads "name" to label the
+                        // marker; emitting "playerName" left it blank so BlueMap fell
+                        // back to showing the UUID.
+                        "name", player.getGameProfile().getName(),
                         "uuid", player.getUUID().toString(),
                         "foreign", false,
                         "position", Map.of("x", pos.x, "y", pos.y, "z", pos.z),
