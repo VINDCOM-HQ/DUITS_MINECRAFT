@@ -113,7 +113,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
-          images: vindcom/netherdeck-${{ matrix.loader }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/netherdeck-${{ matrix.loader }}
           tags: |
             type=ref,event=branch
             type=sha,prefix=
