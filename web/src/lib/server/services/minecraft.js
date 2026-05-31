@@ -6,6 +6,22 @@ const RCON_PASSWORD = process.env.WEB_PORTAL_RCON_PASSWORD || process.env.MC_RCO
 
 let client = null;
 
+// Serialize all RCON operations on the shared connection. Minecraft's RCON
+// closes the socket if it receives a second request before the first response
+// is fully drained (verified: pipelining 3 commands → server returns 1 response
+// then FINs). Queueing guarantees only one connect/command is ever in flight.
+let opQueue = Promise.resolve();
+
+function enqueue(fn) {
+	const run = opQueue.then(() => fn());
+	// Keep the chain alive regardless of this op's success/failure.
+	opQueue = run.then(
+		() => {},
+		() => {}
+	);
+	return run;
+}
+
 /**
  * Get the shared RCON client, creating it if needed.
  * Does NOT auto-connect — call connect() explicitly.
@@ -25,18 +41,20 @@ function getClient() {
  * @param {string} [password] - Override password (defaults to env var)
  */
 export async function connect(host, port, password) {
-	if (client) {
-		client.disconnect();
-		client = null;
-	}
+	return enqueue(async () => {
+		if (client) {
+			client.disconnect();
+			client = null;
+		}
 
-	client = new RconClient(
-		host || RCON_HOST,
-		port || RCON_PORT,
-		password || RCON_PASSWORD
-	);
+		client = new RconClient(
+			host || RCON_HOST,
+			port || RCON_PORT,
+			password || RCON_PASSWORD
+		);
 
-	await client.connect();
+		await client.connect();
+	});
 }
 
 /**
@@ -46,13 +64,15 @@ export async function connect(host, port, password) {
  * @returns {Promise<string>}
  */
 export async function command(cmd) {
-	const c = getClient();
+	return enqueue(async () => {
+		const c = getClient();
 
-	if (!c.isConnected()) {
-		await c.connect();
-	}
+		if (!c.isConnected()) {
+			await c.connect();
+		}
 
-	return c.command(cmd);
+		return c.command(cmd);
+	});
 }
 
 /**

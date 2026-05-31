@@ -311,8 +311,12 @@ export default class RconClient extends EventEmitter {
               this.lastActivity = Date.now()
               this.consecutiveFailures = 0
 
-              // Start keepalive
-              this._startKeepalive()
+              // Keepalive intentionally NOT started. Minecraft's RCON does not
+              // drop idle connections (verified: survived 120s idle), and a
+              // periodic ping can collide with an in-flight command — Minecraft
+              // FINs the socket on a second concurrent request. The command path
+              // reconnects on demand via the serialized queue in minecraft.js.
+              // this._startKeepalive()
 
               // Emit event
               this.emit('connect')
