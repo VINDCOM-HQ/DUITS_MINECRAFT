@@ -1,13 +1,50 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import { building } from '$app/environment';
 import { query } from './db.js';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const SESSION_SECRET = process.env.WEB_PORTAL_SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 
-// OWASP rate limiting: max 5 failed attempts per IP in a 15-minute window
+// Fail closed: the session HMAC and the whole auth chain depend on a real
+// secret. Never silently fall back to a random per-process value (that masks
+// a missing-config and invalidates all sessions on every restart).
+const SESSION_SECRET = process.env.WEB_PORTAL_SESSION_SECRET;
+if (!building && (!SESSION_SECRET || SESSION_SECRET.length < 32)) {
+	throw new Error('WEB_PORTAL_SESSION_SECRET must be set to at least 32 characters');
+}
+
+// OWASP rate limiting: max 5 failed attempts per IP AND per username / 15 min window
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_MINUTES = 15;
+
+// Trusted reverse proxies in front of the portal (e.g. the WAF). The real client
+// IP is the Nth-from-last X-Forwarded-For entry — the one OUR proxy appended —
+// not the leftmost, which the client controls and can spoof to evade rate limits.
+const TRUSTED_PROXY_HOPS = Math.max(1, parseInt(process.env.WEB_PORTAL_TRUSTED_PROXY_HOPS || '1', 10));
+
+// Pre-computed dummy hash so failed-login timing doesn't reveal user existence.
+let DUMMY_HASH = null;
+function getDummyHash() {
+	if (!DUMMY_HASH) DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 12);
+	return DUMMY_HASH;
+}
+
+/**
+ * Resolve the real client IP, trusting only the hop our own proxy appended.
+ * Defeats X-Forwarded-For spoofing of the rate limiter.
+ * @param {Request} request
+ * @param {string} [fallback] - direct socket address (e.g. event.getClientAddress())
+ * @returns {string}
+ */
+export function getClientIp(request, fallback) {
+	const xff = request.headers.get('x-forwarded-for');
+	if (xff) {
+		const parts = xff.split(',').map((s) => s.trim()).filter(Boolean);
+		const idx = parts.length - TRUSTED_PROXY_HOPS;
+		if (idx >= 0 && parts[idx]) return parts[idx].slice(0, 45);
+	}
+	return (fallback || request.headers.get('x-real-ip') || '127.0.0.1').slice(0, 45);
+}
 
 /**
  * Validate a username/password against the users table.
@@ -22,12 +59,16 @@ export async function validateCredentials(username, password) {
 	);
 
 	if (rows.length === 0) {
+		// Constant-time: still run a bcrypt compare so timing doesn't reveal that
+		// the username doesn't exist (user enumeration).
+		await bcrypt.compare(password, getDummyHash());
 		return null;
 	}
 
 	const user = rows[0];
 
 	if (!user.password) {
+		await bcrypt.compare(password, getDummyHash());
 		return null;
 	}
 
@@ -147,29 +188,43 @@ export async function destroySession(token) {
  * @param {string} ipAddress
  * @returns {Promise<{locked: boolean, remaining: number, retryAfterSeconds: number}>}
  */
-export async function checkRateLimit(ipAddress) {
-	const [rows] = await query(
-		`SELECT COUNT(*) AS attempts FROM login_attempts
-		 WHERE ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)`,
-		[ipAddress, LOCKOUT_WINDOW_MINUTES]
-	);
-
-	const attempts = rows[0]?.attempts || 0;
-	const remaining = Math.max(0, MAX_FAILED_ATTEMPTS - attempts);
-
-	if (attempts >= MAX_FAILED_ATTEMPTS) {
-		// Find when the oldest attempt in the window expires
-		const [oldest] = await query(
-			`SELECT created_at FROM login_attempts
-			 WHERE ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)
-			 ORDER BY created_at ASC LIMIT 1`,
+export async function checkRateLimit(ipAddress, username) {
+	// Lock if EITHER this IP or this username has exceeded the threshold in the
+	// window — defeats single-IP brute force and distributed brute force on one
+	// account. (Caller must fail CLOSED if this throws.)
+	const lookups = [
+		query(
+			`SELECT COUNT(*) AS attempts, MIN(created_at) AS oldest FROM login_attempts
+			 WHERE ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)`,
 			[ipAddress, LOCKOUT_WINDOW_MINUTES]
-		);
+		)
+	];
+	if (username) {
+		lookups.push(query(
+			`SELECT COUNT(*) AS attempts, MIN(created_at) AS oldest FROM login_attempts
+			 WHERE username = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)`,
+			[username, LOCKOUT_WINDOW_MINUTES]
+		));
+	}
 
-		const retryAfterSeconds = oldest.length > 0
-			? Math.max(0, Math.ceil((new Date(oldest[0].created_at).getTime() + LOCKOUT_WINDOW_MINUTES * 60 * 1000 - Date.now()) / 1000))
+	const results = await Promise.all(lookups);
+	let attempts = 0;
+	let oldest = null;
+	for (const [rows] of results) {
+		const a = rows[0]?.attempts || 0;
+		if (a > attempts) attempts = a;
+		const o = rows[0]?.oldest;
+		if (o) {
+			const d = new Date(o);
+			if (!oldest || d < oldest) oldest = d;
+		}
+	}
+
+	const remaining = Math.max(0, MAX_FAILED_ATTEMPTS - attempts);
+	if (attempts >= MAX_FAILED_ATTEMPTS) {
+		const retryAfterSeconds = oldest
+			? Math.max(0, Math.ceil((oldest.getTime() + LOCKOUT_WINDOW_MINUTES * 60 * 1000 - Date.now()) / 1000))
 			: LOCKOUT_WINDOW_MINUTES * 60;
-
 		return { locked: true, remaining: 0, retryAfterSeconds };
 	}
 

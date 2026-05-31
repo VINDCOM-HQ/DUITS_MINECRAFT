@@ -12,13 +12,32 @@ function baseUrl() {
 }
 
 /**
+ * Reject a forwarded path that attempts traversal, scheme/host injection, or
+ * carries control characters. The path is appended to a fixed localhost base,
+ * but the tile/bluemap proxies forward a client-supplied [...path].
+ * @param {string} path
+ */
+function assertSafePath(path) {
+	if (typeof path !== 'string') {
+		throw new Error('Invalid map path');
+	}
+	let decoded = path;
+	try { decoded = decodeURIComponent(path); } catch { /* use raw */ }
+	const hasControl = [...decoded].some((c) => c.charCodeAt(0) < 0x20);
+	if (hasControl || decoded.includes('..') || /:\/\//.test(decoded)) {
+		throw new Error('Invalid map path');
+	}
+}
+
+/**
  * Fetch raw data from the Java map HTTP server.
  * @param {string} path - URL path (e.g. "/tiles/overworld/0/0.png")
  * @param {RequestInit} [options] - optional fetch options (method, body, headers)
  * @returns {Promise<Response>}
  */
 export async function fetchFromMapServer(path, options = {}) {
-	const url = `${baseUrl()}${path}`;
+	assertSafePath(path);
+	const url = `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 	const response = await fetch(url, {
 		headers: { 'Accept': '*/*', ...options.headers },
 		...options

@@ -14,6 +14,7 @@ export async function GET() {
 		if (err.status === 302) {
 			throw err;
 		}
-		throw redirect(303, `/login?error=${encodeURIComponent(err.message)}`);
+		console.error('[saml] login init failed:', err.message);
+		throw redirect(303, '/login?error=saml_failed');
 	}
 }

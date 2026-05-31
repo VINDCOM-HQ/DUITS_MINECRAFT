@@ -8,6 +8,12 @@ import { SAML } from '@node-saml/node-saml';
 const SAML_IDP_METADATA_URL = process.env.WEB_PORTAL_SAML_IDP_METADATA_URL || '';
 const SAML_ENTITY_ID = process.env.WEB_PORTAL_SAML_ENTITY_ID || '';
 const SAML_CALLBACK_URL = process.env.WEB_PORTAL_SAML_CALLBACK_URL || '';
+// Out-of-band pinned IdP signing cert + SSO URL — preferred over trusting a
+// runtime metadata fetch (TOFU). If both are set, metadata fetch is skipped.
+const SAML_IDP_CERT = process.env.WEB_PORTAL_SAML_IDP_CERT || '';
+const SAML_IDP_SSO_URL = process.env.WEB_PORTAL_SAML_IDP_SSO_URL || '';
+const SAML_NAMEID_FORMAT =
+	process.env.WEB_PORTAL_SAML_NAMEID_FORMAT || 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
 
 let samlInstance = null;
 let metadataCache = null;
@@ -34,7 +40,10 @@ async function fetchIdPMetadata() {
 		return metadataCache;
 	}
 
-	const res = await fetch(SAML_IDP_METADATA_URL);
+	if (!/^https:\/\//i.test(SAML_IDP_METADATA_URL)) {
+		throw new Error('SAML IdP metadata URL must be https');
+	}
+	const res = await fetch(SAML_IDP_METADATA_URL, { signal: AbortSignal.timeout(8000) });
 	if (!res.ok) {
 		throw new Error(`SAML metadata fetch failed: ${res.status} ${res.statusText}`);
 	}
@@ -72,15 +81,32 @@ async function getSaml() {
 		return samlInstance;
 	}
 
-	const { ssoUrl, cert } = await fetchIdPMetadata();
+	// Prefer the pinned cert + SSO URL; only fall back to the (TOFU) metadata
+	// fetch when they aren't configured.
+	let cert = SAML_IDP_CERT.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
+	let ssoUrl = SAML_IDP_SSO_URL;
+	if (!cert || !ssoUrl) {
+		const meta = await fetchIdPMetadata();
+		ssoUrl = ssoUrl || meta.ssoUrl;
+		cert = cert || meta.cert;
+	}
+	if (!/^https:\/\//i.test(ssoUrl)) {
+		throw new Error('SAML IdP SSO URL must be https');
+	}
 
 	samlInstance = new SAML({
 		callbackUrl: SAML_CALLBACK_URL,
 		entryPoint: ssoUrl,
 		issuer: SAML_ENTITY_ID,
 		idpCert: cert,
+		audience: SAML_ENTITY_ID, // explicit audience restriction
+		identifierFormat: SAML_NAMEID_FORMAT, // pin NameID format
 		wantAssertionsSigned: true,
-		wantAuthnResponseSigned: true
+		wantAuthnResponseSigned: true,
+		// Replay protection: each response must carry an InResponseTo matching a
+		// request we issued. NOTE: the request cache is per-process; this deploy
+		// runs a single replica — a multi-replica setup needs a shared cacheProvider.
+		validateInResponseTo: 'always'
 	});
 
 	return samlInstance;

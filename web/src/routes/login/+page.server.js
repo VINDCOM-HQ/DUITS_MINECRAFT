@@ -4,21 +4,9 @@ import {
 	createSession,
 	destroySession,
 	checkRateLimit,
-	recordLoginAttempt
+	recordLoginAttempt,
+	getClientIp
 } from '$lib/server/auth.js';
-
-/**
- * Extract client IP from request headers (respects reverse proxies).
- * @param {Request} request
- * @returns {string}
- */
-function getClientIp(request) {
-	const forwarded = request.headers.get('x-forwarded-for');
-	if (forwarded) {
-		return forwarded.split(',')[0].trim();
-	}
-	return request.headers.get('x-real-ip') || '127.0.0.1';
-}
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load() {
@@ -35,7 +23,7 @@ export async function load() {
 
 /** @type {import('./$types').Actions} */
 export const actions = {
-	login: async ({ request, cookies }) => {
+	login: async ({ request, cookies, getClientAddress }) => {
 		const data = await request.formData();
 		const username = data.get('username');
 		const password = data.get('password');
@@ -49,16 +37,17 @@ export const actions = {
 		}
 
 		const trimmedUsername = username.trim();
-		const clientIp = getClientIp(request);
+		const clientIp = getClientIp(request, getClientAddress());
 		const userAgent = request.headers.get('user-agent') || '';
 
-		// OWASP: Check rate limit before attempting authentication
-		// Graceful degradation if login_attempts table doesn't exist yet
-		let rateLimit = { locked: false, remaining: 5, retryAfterSeconds: 0 };
+		// Check rate limit before authenticating. Fail CLOSED — never allow
+		// unthrottled brute force if the rate-limit store is unavailable.
+		let rateLimit;
 		try {
-			rateLimit = await checkRateLimit(clientIp);
-		} catch {
-			// Table may not exist yet — proceed without rate limiting
+			rateLimit = await checkRateLimit(clientIp, trimmedUsername);
+		} catch (err) {
+			console.error('[login] rate-limit check failed:', err.message);
+			return fail(503, { error: 'Login is temporarily unavailable. Please try again shortly.' });
 		}
 
 		if (rateLimit.locked) {
@@ -89,7 +78,8 @@ export const actions = {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'strict',
-			secure: process.env.WEB_PORTAL_SECURE_COOKIES !== 'false',
+			// Always Secure in production, regardless of the env flag.
+			secure: process.env.NODE_ENV === 'production' || process.env.WEB_PORTAL_SECURE_COOKIES !== 'false',
 			maxAge: 60 * 60 * 24
 		});
 

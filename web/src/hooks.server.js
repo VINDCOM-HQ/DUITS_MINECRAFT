@@ -37,6 +37,34 @@ async function ensureInitialized() {
 	}
 }
 
+/**
+ * Admin-only API surface — server control (RCON), database, filesystem, live
+ * logs, and infrastructure status. Gated centrally so no individual endpoint
+ * (current or future) can forget the role check. Read-only, low-sensitivity
+ * endpoints (server/status, query, map read views) remain open to any logged-in
+ * user.
+ * @param {string} pathname
+ * @param {string} method
+ */
+function requiresAdmin(pathname, method) {
+	if (
+		pathname.startsWith('/api/rcon/') ||
+		pathname.startsWith('/api/mysql/') ||
+		pathname.startsWith('/api/files/') ||
+		pathname.startsWith('/api/console/') ||
+		pathname.startsWith('/api/auth/') ||
+		pathname === '/api/status' ||
+		pathname === '/api/server/control'
+	) {
+		return true;
+	}
+	// Map region create/delete are mutations; the GET read view stays open.
+	if (pathname === '/api/map/regions' && method !== 'GET') {
+		return true;
+	}
+	return false;
+}
+
 /** @type {import('@sveltejs/kit').Handle} */
 export async function handle({ event, resolve }) {
 	const ready = await ensureInitialized();
@@ -81,6 +109,14 @@ export async function handle({ event, resolve }) {
 		return new Response(null, {
 			status: 302,
 			headers: { Location: '/' }
+		});
+	}
+
+	// Authorization: gate the admin-only API surface centrally.
+	if (user && isApiRoute && user.role !== 'admin' && requiresAdmin(event.url.pathname, event.request.method)) {
+		return new Response(JSON.stringify({ error: 'Forbidden' }), {
+			status: 403,
+			headers: { 'Content-Type': 'application/json' }
 		});
 	}
 
