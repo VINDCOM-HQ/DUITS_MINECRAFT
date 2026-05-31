@@ -1,0 +1,42 @@
+plugins {
+    id 'architectury-plugin'
+}
+
+architectury {
+    common(rootProject.ext.supportedPlatforms)
+}
+
+loom {
+    accessWidenerPath = file('src/main/resources/netherdeck.accesswidener')
+}
+
+dependencies {
+    modImplementation libs.fabric.loader
+
+    compileOnly rootProject.ext.generatedSpigot
+
+    implementation project(':libraries:netherdeck-tools')
+    implementation project(':libraries:netherdeck-api')
+    implementation project(':libraries:netherdeck-mixin-tools')
+    annotationProcessor(project(':libraries:netherdeck-mixin-tools')) { transitive = false }
+
+    // spigot
+    implementation libs.spigot.api
+    implementation libs.jline
+    implementation libs.terminalconsoleappender
+    implementation libs.specialsource
+    implementation libs.log4j.jul
+    implementation libs.bungeecord.chat
+    implementation libs.mysql.connectorj
+    implementation libs.snakeyaml
+
+    implementation project(':i18n-config')
+
+    // World Map (vendored BlueMap Core + deps, MIT licensed — libraries/bluemap/)
+    implementation fileTree(dir: "${rootProject.projectDir}/libraries/bluemap", include: '*.jar')
+}
+
+compileJava {
+    options.compilerArgs << '-XDignore.symbol.file' << '-XDenableSunApiLintControl'
+    options.encoding = 'UTF-8'
+}

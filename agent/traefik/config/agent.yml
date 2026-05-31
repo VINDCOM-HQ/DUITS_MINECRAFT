@@ -1,4 +1,4 @@
-## Traefik Dynamic Configuration for DUITS Agent
+## Traefik Dynamic Configuration for NetherDeck Agent
 
 http:
   routers:

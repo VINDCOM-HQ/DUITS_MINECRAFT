@@ -1,0 +1,94 @@
+plugins {
+    id 'architectury-plugin'
+    id 'com.gradleup.shadow'
+}
+
+architectury {
+    platformSetupLoomIde()
+    fabric()
+}
+
+dependencies {
+    modImplementation libs.fabric.loader
+    modImplementation libs.fabric.api
+
+    implementation project(':libraries:netherdeck-tools')
+    implementation project(':libraries:netherdeck-api')
+    implementation project(':libraries:netherdeck-mixin-tools')
+    annotationProcessor(project(':libraries:netherdeck-mixin-tools')) { transitive = false }
+
+    implementation(libs.bundles.spigot.shade) { transitive = false }
+    shadowBundle(libs.bundles.spigot.shade) { transitive = false }
+    implementation rootProject.ext.generatedSpigot
+    shadowBundle rootProject.ext.generatedSpigot
+
+    modImplementation libs.fabric.permissions.api
+    include libs.fabric.permissions.api
+
+    // XXX: for compiling (netherdeck-api): FabricNetherDeckServer#registerForgeEvent
+    compileOnly("net.minecraftforge:eventbus:4.0.0") { transitive = false }
+
+    implementation(project(':i18n-config')) { transitive = false }
+
+    // World Map (vendored BlueMap Core + deps — libraries/bluemap/)
+    implementation fileTree(dir: "${rootProject.projectDir}/libraries/bluemap", include: '*.jar')
+    shadowBundle fileTree(dir: "${rootProject.projectDir}/libraries/bluemap", include: '*.jar')
+
+    common(project(path: ':netherdeck-common', configuration: 'namedElements')) { transitive = false }
+    shadowBundle(project(path: ':netherdeck-common', configuration: 'transformProductionFabric')) { transitive = false }
+    common(project(':bootstrap')) { transitive = false }
+    shadowBundle(project(':bootstrap')) { transitive = false }
+}
+
+tasks.register('fabricMappings', Copy) {
+    destinationDir = file('build/fabric_mappings')
+    from(netherdeck.mappingsConfiguration.bukkitToFabric) {
+        rename { name -> 'bukkit_srg.srg' }
+    }
+    from(netherdeck.mappingsConfiguration.bukkitToNeoForge) {
+        rename { name -> 'bukkit_moj.srg' }
+    }
+    from(netherdeck.mappingsConfiguration.bukkitToFabricInheritance) {
+        rename { name -> 'inheritanceMap.txt' }
+    }
+}
+
+project.sourceSets.main.output.dir file('build/fabric_mappings'), builtBy: tasks.fabricMappings
+
+processResources {
+    def ver = "${project.version}+$gitHash"
+    inputs.property 'version', ver
+
+    filesMatching('fabric.mod.json') {
+        expand 'version': ver
+    }
+}
+
+shadowJar {
+    exclude 'architectury.common.json'
+
+    configurations = [project.configurations.shadowBundle]
+    archiveClassifier = 'dev-shadow'
+}
+
+remapJar {
+    injectAccessWidener.set true
+    inputFile.set shadowJar.archiveFile
+    dependsOn shadowJar
+}
+
+tasks.register('srgJar', Jar) {
+    from(tasks.remapJar.outputs.files.collect { it.isDirectory() ? it : zipTree(it) }) {
+        include 'io/github/netherdeck/**'
+        exclude 'io/github/netherdeck/common/mixin/**'
+        exclude 'io/github/netherdeck/forge/mixin/**'
+    }
+    archiveClassifier.set('srg')
+    dependsOn remapJar
+}
+
+sourcesJar {
+    def commonSources = rootProject.ext.commonProject.sourcesJar
+    dependsOn commonSources
+    from commonSources.archiveFile.map { zipTree(it) }
+}

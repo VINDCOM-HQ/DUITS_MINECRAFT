@@ -1,0 +1,95 @@
+# ═══════════════════════════════════════════════════════════════════
+# NetherDeck - Semgrep SAST + SCA (Centralized)
+# ═══════════════════════════════════════════════════════════════════
+# Monthly: Full repository scan (scheduled)
+# PR: Diff-only scan (Semgrep CI auto-detects PR context)
+# ═══════════════════════════════════════════════════════════════════
+
+name: Semgrep Security Scan
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  # Monthly full scan - 1st of each month at 2:00 AM UTC
+  schedule:
+    - cron: '0 2 1 * *'
+
+  # Diff-only scan on PRs
+  pull_request:
+    branches:
+      - main
+      - develop
+
+  # Manual trigger with scan mode option
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: 'Scan mode'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - diff
+
+jobs:
+  semgrep-scan:
+    name: Semgrep SAST + SCA Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      # Full scan: scheduled runs + manual "full" trigger
+      - name: Run Semgrep Full Scan
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.scan_mode == 'full')
+        run: semgrep ci --sarif --output semgrep.sarif
+        continue-on-error: true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      # Diff scan: PR events (Semgrep CI auto-detects PR baseline)
+      - name: Run Semgrep Diff Scan
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.scan_mode == 'diff')
+        run: semgrep ci --sarif --output semgrep.sarif
+        continue-on-error: true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: semgrep-reports
+          path: semgrep.sarif
+          retention-days: 90
+
+      - name: Scan Summary
+        if: always()
+        run: |
+          echo "## Semgrep Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "**Mode:** Full Repository Scan (Monthly)" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "**Mode:** Diff-Only Scan (PR #${{ github.event.pull_request.number }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Mode:** Manual (${{ inputs.scan_mode || 'full' }})" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f semgrep.sarif ]; then
+            echo "**Report:** semgrep.sarif uploaded" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Report:** No findings file generated" >> $GITHUB_STEP_SUMMARY
+          fi

@@ -14,7 +14,7 @@ const queryRoutes = require('./query');
 // Root endpoint - API information
 router.get('/', (req, res) => {
   res.json({
-    name: 'Minecraft RCON Agent API',
+    name: 'NetherDeck Agent API',
     status: 'ok'
   });
 });

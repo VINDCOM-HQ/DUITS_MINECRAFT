@@ -1,0 +1,44 @@
+package io.github.netherdeck.boot.neoforge.mod;
+
+import net.neoforged.fml.loading.moddiscovery.ModFile;
+import net.neoforged.neoforgespi.locating.IDependencyLocator;
+import net.neoforged.neoforgespi.locating.IDiscoveryPipeline;
+import net.neoforged.neoforgespi.locating.IModFile;
+import net.neoforged.neoforgespi.locating.IOrderedProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
+
+public class NetherDeckJarInJarFilter implements IDependencyLocator, IOrderedProvider {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("NetherDeckJiJ");
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void scanMods(List<IModFile> loadedMods, IDiscoveryPipeline pipeline) {
+        try {
+            var field = pipeline.getClass().getDeclaredField("loadedFiles");
+            field.setAccessible(true);
+            var loadedFiles = (List<ModFile>) field.get(pipeline);
+            loadedFiles.removeIf(it -> {
+                var optional = getClass().getModule().getLayer().findModule(it.getModFileInfo().moduleName());
+                optional.ifPresent(module -> LOGGER.info("Skip jij dependency {}@{} because NetherDeck has {}",
+                    it.getModFileInfo().moduleName(), it.getModFileInfo().versionString(), module.getDescriptor().toNameAndVersion()));
+                return optional.isPresent();
+            });
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "netherdeck_jij";
+    }
+
+    @Override
+    public int getPriority() {
+        return IOrderedProvider.LOWEST_SYSTEM_PRIORITY;
+    }
+}

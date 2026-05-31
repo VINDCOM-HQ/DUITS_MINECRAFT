@@ -1,0 +1,62 @@
+# NetherDeck Configuration
+# NeoForge+Bukkit hybrid server with Paper performance patches
+#
+# performance: toggles for optimization modules (disable if mod compat issues)
+# world-map:   built-in 3D world map (powered by BlueMap Core 5.4)
+# network:     client connection settings (vanilla client compatibility)
+# Changes require a server restart.
+
+performance:
+  hopper-optimization: true
+  fastutil-collections: true
+  collision-optimization: true
+  entity-activation-improvements: true
+  mob-spawn-optimization: true
+  chunk-tick-optimization: true
+  async-chunks: false
+  lighting-improvements: false
+  per-player-mob-spawning: false
+  skip-activation-modded-entities: true
+
+world-map:
+  enabled: true
+  http-port: 8100
+  http-bind: 127.0.0.1
+  render-threads: 3
+  render-distance: 128
+  update-interval: 30
+
+  # BlueMap render settings
+  render-quality: HIGH          # LOW | MEDIUM | HIGH
+  cave-detection: true
+  cave-detection-y: 55
+  ambient-light: 0.1
+  skylight: 1.0
+
+  dimensions:
+    overworld: true
+    nether: true
+    the-end: true
+
+  # Player trail layer: records movement samples to MySQL
+  player-trails:
+    enabled: true
+    sample-interval: 5          # seconds between trail point recordings per player
+    retention-hours: 24         # how long to keep old trail points
+
+  # Death marker layer: skull icon on the map when a player dies
+  death-markers:
+    enabled: true
+    retention-days: 7
+
+  # Land claim regions: admin-drawn rectangles overlaid on the map
+  land-claims:
+    enabled: true
+
+  # Entity heatmap: real-time chunk entity density overlay
+  entity-heatmap:
+    enabled: true
+    sample-interval: 10         # seconds between chunk entity count samples
+
+network:
+  allow-vanilla-clients: auto

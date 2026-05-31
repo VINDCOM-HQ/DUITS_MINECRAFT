@@ -54,7 +54,7 @@ function init() {
   // Root route for health check
   app.get('/', (req, res) => {
     res.json({
-      name: 'Minecraft RCON Agent',
+      name: 'NetherDeck Agent',
       version: '1.0.0',
       status: 'ok'
     });

@@ -1,0 +1,17 @@
+modLoader="javafml"
+loaderVersion="[2,)"
+license="GNU GENERAL PUBLIC LICENSE Version 3"
+
+[[mods]]
+modId="netherdeck"
+version="${version}"
+displayName="NetherDeck"
+displayTest="IGNORE_SERVER_VERSION"
+credits="lona,夜幕,IzzelAliz (Arclight),Paper Team"
+authors="DownUnderIT Solutions"
+description='''
+    NetherDeck - Paper-performance NeoForge+Bukkit hybrid server (based on Arclight)
+    '''
+
+[[accessTransformers]]
+file="META-INF/accesstransformer.cfg"

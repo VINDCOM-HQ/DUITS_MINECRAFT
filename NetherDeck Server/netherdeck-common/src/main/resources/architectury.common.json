@@ -1,0 +1,7 @@
+{
+  "accessWidener": "netherdeck.accesswidener",
+  "injected_interfaces": {
+    "net/minecraft/class_1297": ["io/github/netherdeck/common/bridge/inject/InjectEntityBridge"],
+    "net/minecraft/class_1937": ["io/github/netherdeck/common/bridge/inject/InjectLevelBridge"]
+  }
+}

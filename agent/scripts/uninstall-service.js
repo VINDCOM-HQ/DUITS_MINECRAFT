@@ -15,7 +15,7 @@ const platform = os.platform();
 const isAdmin = checkAdmin();
 const agentDir = path.resolve(__dirname, '..');
 const serviceConfig = {
-  name: 'DUITS-MC-Agent'
+  name: 'VINDCOM-NetherDeck-Agent'
 };
 
 // Check for admin/root privileges
@@ -115,7 +115,7 @@ function uninstallMacService() {
   }
   
   try {
-    const plistFile = `/Library/LaunchDaemons/com.duits.${serviceConfig.name.toLowerCase()}.plist`;
+    const plistFile = `/Library/LaunchDaemons/com.vindcom.${serviceConfig.name.toLowerCase()}.plist`;
     
     // Unload service
     console.log(`Unloading ${serviceConfig.name} service...`);
@@ -137,7 +137,7 @@ function uninstallMacService() {
 }
 
 // Main execution
-console.log(`=== DUITS Minecraft RMM Agent Service Uninstaller ===`);
+console.log(`=== VINDCOM NetherDeck Agent Service Uninstaller ===`);
 console.log(`Platform: ${platform}`);
 
 // Uninstall service based on platform
