@@ -1,25 +1,29 @@
 # ═══════════════════════════════════════════════════════════════════
 # NetherDeck - Docker Swarm stack (single replica)
 # ═══════════════════════════════════════════════════════════════════
-# Deploy:  docker stack deploy -c container/netherdeck-stack.yml netherdeck
+# Deploy (let docker parse the env file — do NOT `source` it; values with
+# spaces, e.g. OAUTH_SCOPES, don't survive bash sourcing):
+#   docker compose -f container/netherdeck-stack.yml \
+#     --env-file container/netherdeck-stack.env config \
+#     | docker stack deploy -c - netherdeck
+#
+# All values come from the env file (see netherdeck-stack.env) — this file
+# only references variables, no inline defaults.
 #
 # Topology:
 #   - Web portal (:3000)  -> reached by the WAF over `app-network`
 #                            (server_name mc.clouddux.tech -> netherdeck:3000)
-#                            NOT host-published.
-#   - Minecraft (25565)   -> published directly on the host (mode: host),
-#                            bypassing the WAF (raw TCP, not HTTP).
-#   - RCON / MySQL / SMB  -> internal only (never published).
-# Set secrets/values in a stack .env or via `docker secret`/`docker config`.
+#   - Minecraft (25565)   -> published directly on the host, bypassing the WAF
+#   - RCON / MySQL / SMB  -> internal only (never published)
 # ═══════════════════════════════════════════════════════════════════
 
 services:
   netherdeck:
-    image: ${DOCKER_HUB_USERNAME:-downunderit}/netherdeck-neoforge:latest
+    image: ${DOCKER_HUB_USERNAME}/netherdeck-neoforge:${NETHERDECK_TAG}
     networks:
       app-network:
         # Stable alias so the WAF can reach the portal as `netherdeck:3000`
-        # regardless of the deployed stack name (else it'd be netherdeck_netherdeck).
+        # regardless of the deployed stack name.
         aliases:
           - netherdeck
     ports:
@@ -32,9 +36,7 @@ services:
         published: 25565
         protocol: udp
         mode: host
-      # NOTE: 3000 (portal), 25575 (RCON), 3306 (MySQL), 445/139 (SMB) are
-      # intentionally NOT published — the portal is fronted by the WAF over
-      # app-network; RCON/MySQL/SMB stay internal to the container.
+      # 3000 (portal), 25575 (RCON), 3306 (MySQL), 445/139 (SMB) intentionally NOT published.
     volumes:
       - mc_data:/minecraft
       - mysql_data:/var/lib/mysql
@@ -67,42 +69,54 @@ services:
           memory: 4G
     environment:
       # ── Infra / EULA ──
-      - TZ=${TZ:-UTC}
-      - MC_EULA=true
-      - MC_MIN_MEMORY=${MC_MIN_MEMORY:-2G}
-      - MC_MAX_MEMORY=${MC_MAX_MEMORY:-6G}
-      - MC_MOTD=${MC_MOTD:-NetherDeck}
-      # ── MySQL (internal; bound to container localhost) ──
-      - MYSQL_USER=${MYSQL_USER:-mcuser}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
-      - MYSQL_DATABASE=${DATABASE_NAME:-minecraft}
-      - MC_MYSQL_BIND=127.0.0.1
+      - TZ=${TZ}
+      - MC_EULA=${MC_EULA}
+      - MC_MIN_MEMORY=${MC_MIN_MEMORY}
+      - MC_MAX_MEMORY=${MC_MAX_MEMORY}
+      - MC_MOTD=${MC_MOTD}
+      # ── MySQL (internal) ──
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${DATABASE_NAME}
+      - MC_MYSQL_BIND=${MC_MYSQL_BIND}
       # ── Samba (internal) ──
-      - SMB_USER=${SMB_USER:-mcadmin}
-      - SMB_PASSWORD=${SMB_PASSWORD:?set SMB_PASSWORD}
-      # ── RCON (internal; portal connects via localhost) ──
-      - MC_ENABLE_RCON=true
-      - MC_RCON_PASSWORD=${MC_RCON_PASSWORD:?set MC_RCON_PASSWORD}
+      - SMB_USER=${SMB_USER}
+      - SMB_PASSWORD=${SMB_PASSWORD}
+      # ── RCON (internal) ──
+      - MC_ENABLE_RCON=${MC_ENABLE_RCON}
+      - MC_RCON_PASSWORD=${MC_RCON_PASSWORD}
       # ── Web portal (fronted by the WAF) ──
-      - ENABLE_WEB_PORTAL=true
-      - WEB_PORTAL_PORT=3000
-      # SvelteKit (adapter-node) must know its public origin for CSRF/form actions
-      # behind the TLS-terminating WAF; cookies stay secure (HTTPS at the edge).
-      - ORIGIN=https://mc.clouddux.tech
-      - WEB_PORTAL_SECURE_COOKIES=true
-      - WEB_PORTAL_SESSION_SECRET=${WEB_PORTAL_SESSION_SECRET:?set WEB_PORTAL_SESSION_SECRET}
-      - WEB_PORTAL_ADMIN_USER=${WEB_PORTAL_ADMIN_USER:-admin}
-      - WEB_PORTAL_ADMIN_PASSWORD=${WEB_PORTAL_ADMIN_PASSWORD:?set WEB_PORTAL_ADMIN_PASSWORD}
-      - WEB_PORTAL_DB_USER=${WEB_PORTAL_DB_USER:-netherdeck}
-      - WEB_PORTAL_DB_PASSWORD=${WEB_PORTAL_DB_PASSWORD:?set WEB_PORTAL_DB_PASSWORD}
-      - WEB_PORTAL_DB_NAME=${WEB_PORTAL_DB_NAME:-netherdeck}
-      - WEB_PORTAL_GAME_DB_NAME=${DATABASE_NAME:-minecraft}
-      # Portal -> RCON (inside the container)
-      - WEB_PORTAL_RCON_HOST=localhost
-      - WEB_PORTAL_RCON_PORT=25575
-      - WEB_PORTAL_RCON_PASSWORD=${MC_RCON_PASSWORD:?set MC_RCON_PASSWORD}
+      - ENABLE_WEB_PORTAL=${ENABLE_WEB_PORTAL}
+      - WEB_PORTAL_PORT=${WEB_PORTAL_PORT}
+      - ORIGIN=${ORIGIN}
+      - WEB_PORTAL_SECURE_COOKIES=${WEB_PORTAL_SECURE_COOKIES}
+      - WEB_PORTAL_SESSION_SECRET=${WEB_PORTAL_SESSION_SECRET}
+      - WEB_PORTAL_ADMIN_USER=${WEB_PORTAL_ADMIN_USER}
+      - WEB_PORTAL_ADMIN_PASSWORD=${WEB_PORTAL_ADMIN_PASSWORD}
+      - WEB_PORTAL_DB_USER=${WEB_PORTAL_DB_USER}
+      - WEB_PORTAL_DB_PASSWORD=${WEB_PORTAL_DB_PASSWORD}
+      - WEB_PORTAL_DB_NAME=${WEB_PORTAL_DB_NAME}
+      - WEB_PORTAL_GAME_DB_NAME=${DATABASE_NAME}
+      - WEB_PORTAL_RCON_HOST=${WEB_PORTAL_RCON_HOST}
+      - WEB_PORTAL_RCON_PORT=${WEB_PORTAL_RCON_PORT}
+      - WEB_PORTAL_RCON_PASSWORD=${MC_RCON_PASSWORD}
+      # ── Portal: world-map endpoint (internal BlueMap HTTP) ──
+      - WEB_PORTAL_MAP_HOST=${WEB_PORTAL_MAP_HOST}
+      - WEB_PORTAL_MAP_PORT=${WEB_PORTAL_MAP_PORT}
+      # ── Portal: OAuth/OIDC (disabled) — supervisord requires these to be set ──
+      - WEB_PORTAL_OAUTH_ENABLED=${WEB_PORTAL_OAUTH_ENABLED}
+      - WEB_PORTAL_OAUTH_ISSUER_URL=${WEB_PORTAL_OAUTH_ISSUER_URL}
+      - WEB_PORTAL_OAUTH_CLIENT_ID=${WEB_PORTAL_OAUTH_CLIENT_ID}
+      - WEB_PORTAL_OAUTH_CLIENT_SECRET=${WEB_PORTAL_OAUTH_CLIENT_SECRET}
+      - WEB_PORTAL_OAUTH_SCOPES=${WEB_PORTAL_OAUTH_SCOPES}
+      - WEB_PORTAL_OAUTH_CALLBACK_URL=${WEB_PORTAL_OAUTH_CALLBACK_URL}
+      # ── Portal: SAML 2.0 (disabled) ──
+      - WEB_PORTAL_SAML_ENABLED=${WEB_PORTAL_SAML_ENABLED}
+      - WEB_PORTAL_SAML_IDP_METADATA_URL=${WEB_PORTAL_SAML_IDP_METADATA_URL}
+      - WEB_PORTAL_SAML_ENTITY_ID=${WEB_PORTAL_SAML_ENTITY_ID}
+      - WEB_PORTAL_SAML_CALLBACK_URL=${WEB_PORTAL_SAML_CALLBACK_URL}
       # ── World map (BlueMap) ──
-      - ENABLE_WORLD_MAP=${ENABLE_WORLD_MAP:-true}
+      - ENABLE_WORLD_MAP=${ENABLE_WORLD_MAP}
 
 networks:
   app-network:
