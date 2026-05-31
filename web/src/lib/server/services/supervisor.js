@@ -5,16 +5,16 @@ const execFile = promisify(execFileCb);
 
 const ALLOWED_ACTIONS = new Set(['start', 'stop', 'restart']);
 
-const PROCESS_NAME = 'paper';
+const PROCESS_NAME = 'netherdeck';
 
 /**
  * Parse supervisorctl status output into a structured object.
  *
  * Typical formats:
- *   paper                            RUNNING   pid 123, uptime 0:05:30
- *   paper                            STOPPED   Mar 02 10:15 AM
- *   paper                            STARTING
- *   paper                            FATAL     Exited too quickly
+ *   netherdeck                       RUNNING   pid 123, uptime 0:05:30
+ *   netherdeck                       STOPPED   Mar 02 10:15 AM
+ *   netherdeck                       STARTING
+ *   netherdeck                       FATAL     Exited too quickly
  *
  * @param {string} stdout
  * @returns {{status: 'running'|'stopped'|'starting'|'error', pid: number|null, uptime: string|null}}
