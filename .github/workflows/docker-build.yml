@@ -1,8 +1,20 @@
+# ═══════════════════════════════════════════════════════════════════
+# NetherDeck Container - Docker Build & Push
+# ═══════════════════════════════════════════════════════════════════
+# Builds the server JAR from source, then builds + pushes the image.
+# A TruffleHog secrets scan gates the build. Image is published only on
+# push to main (PRs run the gate but do not build/push).
+# Semgrep SAST + SCA is handled centrally in semgrep.yml.
+# ═══════════════════════════════════════════════════════════════════
+
 name: Build Docker Image
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
     paths:
       - 'container/**'
       - 'agent/**'
@@ -19,8 +31,37 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  # ───────────────────────────────────────────────────────────────────
+  # Secrets Scanning - detects leaked credentials, gates the build
+  # ───────────────────────────────────────────────────────────────────
+  secrets-scan:
+    name: Secrets Scan (TruffleHog)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog Secrets Scan
+        uses: trufflesecurity/trufflehog@586f66d7886cd0b037c7c245d4a6e34ef357ab10 # v3.94.1
+        continue-on-error: true
+        with:
+          path: .
+          extra_args: --only-verified
+
+  # ───────────────────────────────────────────────────────────────────
+  # Build & Push - only on push to main (not on pull requests)
+  # ───────────────────────────────────────────────────────────────────
+  build:
+    name: Build and Push (${{ matrix.loader }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+    needs: [secrets-scan]
     permissions:
       contents: read
 
@@ -50,11 +91,19 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :bootstrap:${{ matrix.loader }}Jar --no-daemon --stacktrace
 
+      - name: Verify server JAR was produced
+        run: |
+          JAR=$(ls "NetherDeck Server/bootstrap/build/libs/netherdeck-${{ matrix.loader }}-"*.jar 2>/dev/null | head -1)
+          if [ -z "$JAR" ]; then
+            echo "::error::No server JAR found for loader ${{ matrix.loader }} — aborting build."
+            exit 1
+          fi
+          echo "Found server JAR: $JAR"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to Docker Hub
-        if: github.event_name == 'push'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -75,7 +124,7 @@ jobs:
         with:
           context: .
           file: container/Dockerfile
-          push: ${{ github.event_name == 'push' }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: LOADER=${{ matrix.loader }}
