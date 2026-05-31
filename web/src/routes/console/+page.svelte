@@ -2,6 +2,7 @@
 	import { rconCommand, rconStatus, rconConnect } from '$lib/api.js';
 	import { setRcon } from '$lib/stores/connections.svelte.js';
 	import { connectLogStream, getStreamStatus } from '$lib/stores/log-stream.svelte.js';
+	import { getCommandLog } from '$lib/stores/command-log.svelte.js';
 	import { parseLogLine } from '$lib/utils/parse-log-line.js';
 	import { error as toastError } from '$lib/stores/toast.svelte.js';
 	import StatusIndicator from '$lib/components/StatusIndicator.svelte';
@@ -15,11 +16,28 @@
 	let connecting = $state(true);
 	let autoScroll = $state(true);
 
+	// Plain (non-reactive) cursor tracking how many shared-command-log entries
+	// we've already rendered into the console output.
+	let renderedCmdLog = 0;
+
 	const MAX_OUTPUT_LINES = 5000;
 
 	// Auto-connect RCON on mount
 	$effect(() => {
 		checkAndConnect();
+	});
+
+	// Surface commands issued elsewhere (control panels, quick actions) in the
+	// console, with the server's actual response, so they're visible and confirmable.
+	$effect(() => {
+		const log = getCommandLog();
+		if (log.length <= renderedCmdLog) return;
+		const fresh = log.slice(renderedCmdLog);
+		renderedCmdLog = log.length;
+		for (const entry of fresh) {
+			appendOutput(`> ${entry.command}`, 'command');
+			if (entry.response) appendOutput(entry.response, 'response');
+		}
 	});
 
 	// Connect log stream on mount

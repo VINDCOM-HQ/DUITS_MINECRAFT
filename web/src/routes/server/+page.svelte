@@ -2,6 +2,7 @@
 	import { rconCommand, serverControl, serverStatus as fetchServerStatus } from '$lib/api.js';
 	import { getRcon, getServerStatus, setServerStatus } from '$lib/stores/connections.svelte.js';
 	import { error as toastError, success as toastSuccess } from '$lib/stores/toast.svelte.js';
+	import { logCommand } from '$lib/stores/command-log.svelte.js';
 	import Modal from '$lib/components/Modal.svelte';
 	import { page } from '$app/stores';
 
@@ -38,6 +39,21 @@
 			toastError(err.message);
 			return null;
 		}
+	}
+
+	// Run a user-initiated command: send it, record it (command + server response)
+	// in the shared command log so the console shows it, and surface the server's
+	// actual reply in a toast. Falls back to a generic message if the reply is empty.
+	async function runAction(cmd, fallbackMsg) {
+		const res = await runCmd(cmd);
+		if (res === null) {
+			toastError(`Command failed: ${cmd}`);
+			return null;
+		}
+		logCommand(cmd, res);
+		const msg = res.replace(/§./g, '').replace(/\s+/g, ' ').trim();
+		toastSuccess(msg || fallbackMsg);
+		return res;
 	}
 
 	async function refreshServerStatus() {
@@ -84,10 +100,14 @@
 		// Match header: "There are N ban(s):" or "There are N/M bans:" (Paper)
 		const match = res.match(/There are \d+(?:\/\d+)? ban(?:\(s\)|s):([\s\S]*)/);
 		if (!match) return [];
-		// Entries may be comma-separated, newline-separated, or both
+		// Each entry is on its own line: "<name|ip> was banned by <source>: <reason>".
+		// Keep only the name/ip so pardon / pardon-ip get a clean argument (reasons
+		// can contain commas/colons, so split on lines and strip the suffix).
 		return match[1]
-			.split(/[,\n]+/)
-			.map((entry) => entry.trim())
+			.split('\n')
+			.map((line) => line.trim())
+			.filter(Boolean)
+			.map((line) => line.split(/\s+was banned by\s+/i)[0].trim())
 			.filter(Boolean);
 	}
 
@@ -110,24 +130,31 @@
 	}
 
 	async function unban(name) {
-		await runCmd(`pardon ${name}`);
-		toastSuccess(`Unbanned ${name}`);
-		fetchBannedPlayers();
+		const res = await runAction(`pardon ${name}`, `Unbanned ${name}`);
+		if (res !== null) fetchBannedPlayers();
 	}
 
 	async function unbanIP(ip) {
-		await runCmd(`pardon-ip ${ip}`);
-		toastSuccess(`Unbanned IP ${ip}`);
-		fetchBannedIPs();
+		const res = await runAction(`pardon-ip ${ip}`, `Unbanned IP ${ip}`);
+		if (res !== null) fetchBannedIPs();
 	}
 
-	function setTime(value) { runCmd(`time set ${value}`); toastSuccess(`Time set to ${value}`); }
-	function setWeather(w) { runCmd(`weather ${w}`); toastSuccess(`Weather: ${w}`); }
-	function setDifficulty(d) { runCmd(`difficulty ${d}`); toastSuccess(`Difficulty: ${d}`); }
-	function setTick() { runCmd(`tick rate ${tickRate}`); toastSuccess(`Tick rate: ${tickRate}`); }
-	function setIdle() { runCmd(`setidletimeout ${idleTimeout}`); toastSuccess(`Idle timeout: ${idleTimeout}m`); }
-	function saveWorld() { runCmd('save-all'); toastSuccess('World saved'); }
-	function reloadServer() { runCmd('reload confirm'); toastSuccess('Server reloaded'); }
+	function setTime(value) { runAction(`time set ${value}`, `Time set to ${value}`); }
+	function setWeather(w) { runAction(`weather ${w}`, `Weather: ${w}`); }
+	function setDifficulty(d) { runAction(`difficulty ${d}`, `Difficulty: ${d}`); }
+	async function loadTickRate() {
+		const res = await runCmd('tick query');
+		if (!res) return;
+		const m = res.match(/Target tick rate:\s*([\d.]+)/i);
+		if (m) tickRate = Math.round(parseFloat(m[1]));
+	}
+	async function setTick() {
+		const res = await runAction(`tick rate ${tickRate}`, `Tick rate: ${tickRate}`);
+		if (res !== null) loadTickRate();
+	}
+	function setIdle() { runAction(`setidletimeout ${idleTimeout}`, `Idle timeout: ${idleTimeout}m`); }
+	function saveWorld() { runAction('save-all', 'World saved'); }
+	function reloadServer() { runAction('reload confirm', 'Server reloaded'); }
 
 	$effect(() => {
 		refreshServerStatus();
@@ -139,6 +166,7 @@
 		if (getRcon().connected) {
 			fetchBannedPlayers();
 			fetchBannedIPs();
+			loadTickRate();
 		}
 	});
 
