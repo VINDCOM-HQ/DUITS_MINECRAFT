@@ -26,8 +26,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     netcat-openbsd \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 22 LTS for agent relay
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+# Install Node.js 24 (Active LTS) for agent relay + web portal build
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 

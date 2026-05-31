@@ -5,6 +5,9 @@
   "main": "main.js",
   "author": "Harrison Windberg",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build:css": "npx @tailwindcss/cli -i ./input.css -o ./tailwind.css --minify",
     "start": "npm run build:css && electron .",

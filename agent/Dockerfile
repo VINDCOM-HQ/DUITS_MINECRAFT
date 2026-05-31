@@ -1,5 +1,5 @@
-# Use a lightweight Node.js image
-FROM node:18-alpine
+# Use a lightweight Node.js image (Node 24 Active LTS)
+FROM node:24-alpine
 
 # Create app directory and set as working directory
 WORKDIR /usr/src/app
